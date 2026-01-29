@@ -1,23 +1,5 @@
 {
   "name": "fluxloop",
   "version": "0.2.0",
-  "description": "FluxLoop AI agent testing with automated data synthesis, simulation, and evaluation",
-  "author": {
-    "name": "FluxLoop Team",
-    "url": "https://alpha.app.fluxloop.ai"
-  },
-  "homepage": "https://alpha.app.fluxloop.ai",
-  "documentation": "https://docs.fluxloop.ai/claude-code",
-  "repository": "https://github.com/Fluxloop-AI/fluxloop-claude-plugin",
-  "license": "MIT",
-  "commands": ["commands/*.md"],
-  "skills": ["skills/**/*.md"],
-  "hooks": ["hooks/hooks.json"],
-  "keywords": [
-    "testing",
-    "ai-agent",
-    "evaluation",
-    "simulation",
-    "data-synthesis"
-  ]
+  "description": "FluxLoop AI agent testing with automated data synthesis, simulation, and evaluation"
 }
