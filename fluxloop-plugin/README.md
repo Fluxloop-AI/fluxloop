@@ -42,6 +42,7 @@ The **`fluxloop-agent-test`** skill automatically:
 - ✅ Generates test data and personas
 - ✅ Runs simulations against your agent
 - ✅ Uploads results to FluxLoop Web
+- ✅ Triggers evaluations and surfaces insights/recommendations (even for partial runs)
 - ✅ Shows you what to fix
 
 ### Skill Workflow
@@ -116,6 +117,22 @@ Would you like me to analyze the failures?
 
 ---
 
+## 🧪 Server-Side Evaluation (Optional)
+
+Trigger evaluations for an experiment and optionally wait for completion:
+
+```bash
+fluxloop evaluate --experiment-id <experiment_id>
+fluxloop evaluate --experiment-id <experiment_id> --wait
+fluxloop evaluate --experiment-id <experiment_id> --wait --timeout 900 --poll-interval 5
+```
+
+- `--wait` polls until the job is `completed` or `partial` and prints the latest insight/recommendation headlines.
+- Insights/recommendations are generated when at least one run completes, even if the job ends as `partial`.
+- If a job stays `queued` for >30s without a worker lock, you'll see a warning about worker/backlog.
+
+---
+
 ## 📁 Slash Commands (Manual Alternative)
 
 For when you need direct control:
@@ -126,6 +143,7 @@ For when you need direct control:
 | `/fluxloop:test` | Run tests |
 | `/fluxloop:smoke` | Quick smoke test |
 | `/fluxloop:pull` | Pull test data from Web |
+| `/fluxloop:evaluate` | Trigger server-side evaluation (supports `--wait`) |
 | `/fluxloop:status` | Check current status |
 
 > 💡 **Recommendation**: Use natural language with the skill instead. It's smarter and handles edge cases automatically.

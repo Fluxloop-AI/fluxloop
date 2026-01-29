@@ -231,6 +231,23 @@ fluxloop test results --scenario <name> --raw  # Raw markdown
 
 ---
 
+## Phase 5: Evaluate (Server-side Insights)
+
+Use server-side evaluation to generate insights and recommendations for an experiment.
+
+```bash
+fluxloop evaluate --experiment-id <id>
+fluxloop evaluate --experiment-id <id> --wait
+fluxloop evaluate --experiment-id <id> --wait --timeout 900 --poll-interval 5
+```
+
+### Evaluation Notes
+- `--wait` polls until status is `completed`, `partial`, `failed`, or `cancelled`.
+- When a job finishes as `completed` or `partial` with at least one run completed, insights/recommendations are generated and the CLI prints the latest headlines.
+- If the job stays `queued` for >30s without `locked_at`, the CLI warns that workers may be down or backlog is high.
+
+---
+
 ## Agent Wrapper Setup
 
 To run tests, FluxLoop needs to invoke your agent.
@@ -312,6 +329,7 @@ python -c "from agents.wrapper import run; print(run('test'))"
 | `fluxloop sync pull --bundle-version-id <id>` | Pull bundle (auto-uses current scenario) |
 | `fluxloop test --scenario <name>` | Run test |
 | `fluxloop test results --scenario <name>` | View latest test results |
+| `fluxloop evaluate --experiment-id <id> --wait` | Trigger evaluation and show insight/reco headlines |
 
 ---
 
@@ -340,4 +358,5 @@ python -c "from agents.wrapper import run; print(run('test'))"
 3. **Ask user before executing** (NO auto-execution)
 4. **Run sync pull + test separately** (Do NOT use `--pull`)
 5. **Use explicit IDs** (`--bundle-version-id`, `--scenario-id`)
-6. **Complex agents need wrapper** (See "Agent Wrapper Setup" section)
+6. **Use evaluate --wait for insights** (Partial jobs can still yield headlines)
+7. **Complex agents need wrapper** (See "Agent Wrapper Setup" section)
