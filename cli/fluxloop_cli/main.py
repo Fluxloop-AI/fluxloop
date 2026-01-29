@@ -17,6 +17,7 @@ from .commands import (
     config,
     context,
     criteria,
+    evaluate,
     generate,
     init,
     inputs,
@@ -66,6 +67,7 @@ app.add_typer(config.app, name="config", help="Manage configuration")
 app.add_typer(generate.app, name="generate", help="Generate input datasets")
 app.add_typer(sync.app, name="sync", help="Sync bundles and upload results")
 app.add_typer(criteria.app, name="criteria", help="Show pulled evaluation criteria")
+app.add_typer(evaluate.app, name="evaluate", help="Trigger server-side evaluation")
 app.add_typer(test.app, name="test", help="Run pull -> run -> upload test workflow")
 app.add_typer(auth.app, name="auth", help="Manage authentication")
 app.add_typer(apikeys.app, name="apikeys", help="Manage API Keys for sync operations")
