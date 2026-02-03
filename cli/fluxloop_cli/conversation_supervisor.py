@@ -149,6 +149,8 @@ class ConversationSupervisor:
             return self._mock_decision(conversation_state)
         if provider == "openai":
             response_text = await self._call_openai(prompt)
+        elif provider == "anthropic":
+            response_text = await self._call_anthropic(prompt)
         else:
             raise ValueError(f"Unsupported supervisor provider: {self.config.provider}")
 
@@ -276,6 +278,67 @@ class ConversationSupervisor:
         content = message.get("content")
         if not content:
             raise RuntimeError("OpenAI supervisor response missing content.")
+
+        return content
+
+    async def _call_anthropic(self, prompt: str) -> str:
+        """Call Anthropic messages endpoint."""
+
+        api_key = (
+            self.config.api_key
+            or self.config.metadata.get("api_key")
+            or os.getenv("FLUXLOOP_SUPERVISOR_API_KEY")
+            or os.getenv("ANTHROPIC_API_KEY")
+        )
+
+        if not api_key:
+            raise RuntimeError(
+                "Anthropic supervisor requires an API key. "
+                "Set multi_turn.supervisor.api_key or FLUXLOOP_SUPERVISOR_API_KEY/ANTHROPIC_API_KEY."
+            )
+
+        messages: List[Dict[str, str]] = [{"role": "user", "content": prompt}]
+
+        payload: Dict[str, Any] = {
+            "model": self.config.model or "claude-sonnet-4-5-20250514",
+            "max_tokens": 1024,
+            "messages": messages,
+        }
+        if self.config.system_prompt:
+            payload["system"] = self.config.system_prompt
+        if self.config.temperature is not None:
+            payload["temperature"] = self.config.temperature
+
+        async with httpx.AsyncClient(timeout=60) as client:
+            response = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f"Anthropic supervisor request failed ({response.status_code}): {response.text}"
+            )
+
+        data = response.json()
+        content_blocks = data.get("content") or []
+        if not content_blocks:
+            raise RuntimeError("Anthropic supervisor response contained no content.")
+
+        # Extract text from content blocks
+        text_parts = []
+        for block in content_blocks:
+            if block.get("type") == "text":
+                text_parts.append(block.get("text", ""))
+
+        content = "".join(text_parts)
+        if not content:
+            raise RuntimeError("Anthropic supervisor response missing text content.")
 
         return content
 

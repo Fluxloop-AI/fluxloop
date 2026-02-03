@@ -57,6 +57,17 @@ def synthesize(
     count_per_persona: Optional[int] = typer.Option(
         None, "--count-per-persona", help="Number of inputs per persona"
     ),
+    include_data_context: Optional[bool] = typer.Option(
+        None,
+        "--include-data-context/--no-include-data-context",
+        help="Include scenario data summary as grounding context (default: true)",
+    ),
+    grounding_test_ratio: Optional[float] = typer.Option(
+        None,
+        "--grounding-ratio",
+        "--grounding-test-ratio",
+        help="Ratio of grounding tests when data context is available (0-1, default 0.3)",
+    ),
     bundle_version_id: Optional[str] = typer.Option(
         None, "--bundle-version-id", help="Bundle version ID to use for synthesis"
     ),
@@ -143,6 +154,12 @@ def synthesize(
 
     if count_per_persona is not None:
         payload["count_per_persona"] = count_per_persona
+
+    if include_data_context is not None:
+        payload["include_data_context"] = include_data_context
+
+    if grounding_test_ratio is not None:
+        payload["grounding_test_ratio"] = grounding_test_ratio
 
     if bundle_version_id:
         payload["bundle_version_id"] = bundle_version_id

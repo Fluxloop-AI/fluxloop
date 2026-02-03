@@ -17,15 +17,24 @@ Manages the complete test cycle for AI agents.
 
 ## Core Principle
 
-**Context-First:** Always read context first → understand state → ask user → execute after confirmation
+**Context-First:** Check context → summarize → confirm → execute
 
 ```
 1. Check context (fluxloop context show)
 2. Summarize current state
-3. Present options (NO auto-execution)
+3. Present options
 4. Execute after user confirmation
 5. Save results to context
 ```
+
+### Execution Mode (Ask once at start)
+
+| Mode | Description |
+|------|-------------|
+| 🚀 **Auto** | Run all phases without stopping, only pause on errors |
+| ✅ **Interactive** (default) | Pause after each major step for confirmation |
+
+Prompt: `"Run automatically or step-by-step? (auto/interactive, default: interactive)"`
 
 ---
 
@@ -57,6 +66,22 @@ project_root/
       scenario-b/
         ...
 ```
+
+---
+
+## Post-Action Summary
+
+After each action, output: `✅ [Action] → [summary] 🔗 [url]`
+
+| Action | URL Pattern |
+|--------|-------------|
+| Project | `https://alpha.app.fluxloop.ai/simulate/scenarios?project={project_id}` |
+| Scenario | `https://alpha.app.fluxloop.ai/simulate/scenarios/{scenario_id}?project={project_id}` |
+| Input Set | `https://alpha.app.fluxloop.ai/simulate/scenarios/{scenario_id}/inputs/{input_set_id}?project={project_id}` |
+| Bundle | `https://alpha.app.fluxloop.ai/simulate/scenarios/{scenario_id}/bundles/{bundle_version_id}?project={project_id}` |
+| Experiment | `https://alpha.app.fluxloop.ai/evaluate/experiments/{experiment_id}?project={project_id}` |
+
+Example: `✅ Scenario created → "Order Bot" (scn_abc) 🔗 https://alpha.app.fluxloop.ai/simulate/scenarios/scn_abc?project=proj_123`
 
 ---
 
@@ -102,6 +127,24 @@ fluxloop projects create --name "my-agent"
 fluxloop intent refine --intent "..."
 ```
 
+### Naming Rules (for create commands)
+
+| Field | Language | Format |
+|-------|----------|--------|
+| Folder name | **English only** | kebab-case (`order-bot`) |
+| Project/Scenario name | Any | Display text ("주문 봇", "Order Bot") |
+
+**When creating project/scenario:** Suggest 3 candidates based on codebase:
+- Analyze: `package.json`, `pyproject.toml`, main agent file, README, directory name
+- Folder: keywords → kebab-case → suffix (`-agent`, `-bot`)
+- Display: offer Korean + English options
+
+```
+📁 Folder: 1) order-bot  2) food-agent  3) cs-service
+📝 Name: 1) Order Bot  2) 주문 봇  3) Food Agent
+Select number or type custom:
+```
+
 > **Important**: Install fluxloop-cli in your workspace's environment so simulations run with the same dependencies as your agent.
 > For detailed setup instructions, run `/fluxloop:setup`
 
@@ -117,10 +160,10 @@ fluxloop intent refine --intent "..."
 pwd  # Should be your project directory, NOT ~
 
 # 1. Initialize local folder (creates .fluxloop/scenarios/<name>/)
-fluxloop init scenario order-bot
+fluxloop init scenario order-bot  # ← Use Naming Rules (English kebab-case)
 
 # 2. Create and refine web scenario
-fluxloop scenarios create --name "Order Bot" --goal "..."
+fluxloop scenarios create --name "Order Bot" --goal "..."  # ← Name can be any language
 fluxloop scenarios refine --scenario-id <id>
 
 # 3. Create API key (saves to .fluxloop/.env, shared by all scenarios)
@@ -133,6 +176,7 @@ fluxloop apikeys create
 
 > **Note:** API keys are project-scoped and stored in `.fluxloop/.env`.
 > All scenarios in the workspace share the same API key.
+> **Naming:** See "Naming Rules" in Phase 1 for folder/name conventions.
 
 **Common mistake:** Running `init scenario` from home directory creates in `~/.fluxloop/` instead of workspace.
 
@@ -223,6 +267,34 @@ fluxloop test --scenario <name>
 
 > ⚠️ Do NOT use `test --pull`. Always run `sync pull` + `test` separately.
 
+### Multi-Turn Testing
+
+테스트 전 확인: `"멀티턴? (yes/no), 최대 턴? (default:8), LLM? (openai/anthropic)"`
+
+#### API Key 설정 (유저 직접 수행)
+
+멀티턴은 LLM API Key 필요. 아래 파일 경로를 출력하면 유저가 클릭해서 편집 가능:
+```
+📁 API Key 설정이 필요합니다. 아래 파일을 열어 추가해주세요:
+.fluxloop/scenarios/<scenario>/.env
+
+추가할 내용:
+- OpenAI: OPENAI_API_KEY=sk-xxx
+- Anthropic: ANTHROPIC_API_KEY=sk-ant-xxx
+```
+
+#### 실행
+
+```bash
+# OpenAI (기본)
+! fluxloop test --scenario <name> --multi-turn --max-turns 5
+
+# Anthropic
+! fluxloop test --scenario <name> --multi-turn --supervisor-provider anthropic
+```
+
+> ⚠️ 멀티턴은 `!` prefix 필수
+
 ### View Results
 ```bash
 fluxloop test results --scenario <name>    # Formatted output
@@ -250,63 +322,23 @@ fluxloop evaluate --experiment-id <id> --wait --timeout 900 --poll-interval 5
 
 ## Agent Wrapper Setup
 
-To run tests, FluxLoop needs to invoke your agent.
-The `runner.target` in `configs/simulation.yaml` must point to the agent entry point.
+To run tests, FluxLoop needs to invoke your agent via `runner.target` in `configs/simulation.yaml`.
 
 ### When is Wrapper Needed?
 
-| Agent Type | Wrapper? | Description |
-|------------|----------|-------------|
-| Simple function `def run(input: str) -> str` | ❌ | Direct call |
-| Class/stateful agent | ✅ | Wrap initialization |
-| External dependencies (DB, broker, API) | ✅ | Wrap dependency injection |
-| Needs conversation_id or context | ✅ | Wrap metadata handling |
+| Agent Type | Wrapper? |
+|------------|----------|
+| Simple function `def run(input: str) -> str` | ❌ Direct call |
+| Class/stateful agent | ✅ Wrap initialization |
+| External dependencies (DB, broker, API) | ✅ Wrap dependency injection |
 
 ### Setup Steps
 
-1. Create wrapper: `.fluxloop/scenarios/<name>/agents/wrapper.py`
-2. Update `configs/simulation.yaml` → `runner.target: "agents.wrapper:run"`
-3. Run test
+1. Create: `.fluxloop/scenarios/<name>/agents/wrapper.py`
+2. Update: `configs/simulation.yaml` → `runner.target: "agents.wrapper:run"`
+3. Debug: `python -c "from agents.wrapper import run; print(run('test'))"`
 
-### Wrapper Template
-
-```python
-# agents/wrapper.py
-import uuid
-from my_agent import AgentService
-
-_agent = None
-
-def run(input_text: str, metadata: dict = None) -> str:
-    """FluxLoop test entry point. Must return string."""
-    global _agent
-    if _agent is None:
-        _agent = AgentService()  # Initialize once
-    
-    conversation_id = str(uuid.uuid4())
-    response = _agent.process(conversation_id, input_text)
-    return str(response)
-```
-
-```yaml
-# configs/simulation.yaml
-runner:
-  target: "agents.wrapper:run"
-```
-
-### Async Wrapper
-
-```python
-def run(input_text: str, metadata: dict = None) -> str:
-    return asyncio.run(my_async_agent.process(input_text))
-```
-
-### Debug
-
-```bash
-cd .fluxloop/scenarios/<name>
-python -c "from agents.wrapper import run; print(run('test'))"
-```
+> See **Appendix A1** for full wrapper template
 
 ---
 
@@ -328,6 +360,8 @@ python -c "from agents.wrapper import run; print(run('test'))"
 | `fluxloop bundles publish --scenario-id <id> --input-set-id <id>` | Publish bundle |
 | `fluxloop sync pull --bundle-version-id <id>` | Pull bundle (auto-uses current scenario) |
 | `fluxloop test --scenario <name>` | Run test |
+| `fluxloop test --scenario <name> --multi-turn` | Run multi-turn test |
+| `fluxloop test --scenario <name> --multi-turn --max-turns 5` | Multi-turn test with max 5 turns |
 | `fluxloop test results --scenario <name>` | View latest test results |
 | `fluxloop evaluate --experiment-id <id> --wait` | Trigger evaluation and show insight/reco headlines |
 
@@ -353,10 +387,60 @@ python -c "from agents.wrapper import run; print(run('test'))"
 
 ## Key Takeaways
 
-1. **Always check context first** (`fluxloop context show`)
-2. **Check existing data with list** (`bundles list`, `inputs list`)
-3. **Ask user before executing** (NO auto-execution)
-4. **Run sync pull + test separately** (Do NOT use `--pull`)
-5. **Use explicit IDs** (`--bundle-version-id`, `--scenario-id`)
-6. **Use evaluate --wait for insights** (Partial jobs can still yield headlines)
-7. **Complex agents need wrapper** (See "Agent Wrapper Setup" section)
+1. **Ask execution mode at start** (Auto or Interactive)
+2. **Always check context first** (`fluxloop context show`)
+3. **Check existing data with list** (`bundles list`, `inputs list`)
+4. **Use Naming Rules** (English kebab-case for folders, any language for display names)
+5. **Output summary after each action** (`✅ Action → summary 🔗 url`)
+6. **Run sync pull + test separately** (Do NOT use `--pull`)
+7. **Use explicit IDs** (`--bundle-version-id`, `--scenario-id`)
+8. **Complex agents need wrapper** (See "Agent Wrapper Setup" + Appendix A1)
+9. **Multi-turn: ask settings + use `!` prefix** (`! fluxloop test --multi-turn`)
+
+---
+
+## Appendix
+
+### A1. Wrapper Template (Full)
+
+```python
+# .fluxloop/scenarios/<name>/agents/wrapper.py
+import uuid
+from my_agent import AgentService
+
+_agent = None
+
+def run(input_text: str, metadata: dict = None) -> str:
+    """FluxLoop test entry point. Must return string."""
+    global _agent
+    if _agent is None:
+        _agent = AgentService()  # Initialize once
+    
+    conversation_id = str(uuid.uuid4())
+    response = _agent.process(conversation_id, input_text)
+    return str(response)
+```
+
+```yaml
+# configs/simulation.yaml
+runner:
+  target: "agents.wrapper:run"
+```
+
+**Async version:**
+```python
+def run(input_text: str, metadata: dict = None) -> str:
+    return asyncio.run(my_async_agent.process(input_text))
+```
+
+### A2. Summary Output Examples
+
+| Phase | Example |
+|-------|---------|
+| Login | `✅ Login → user@example.com` |
+| Project | `✅ Project → "my-bot" (proj_123) 🔗 .../simulate/scenarios?project=proj_123` |
+| Scenario | `✅ Scenario → "Happy Path" (scn_456) 🔗 .../simulate/scenarios/scn_456?project=proj_123` |
+| Input Set | `✅ Input Set → inp_789 (10 inputs) 🔗 .../simulate/scenarios/scn_456/inputs/inp_789?project=proj_123` |
+| Bundle | `✅ Bundle → v1 (bnd_012) 🔗 .../simulate/scenarios/scn_456/bundles/bnd_012?project=proj_123` |
+| Test | `✅ Test → exp_abc (10 runs) 🔗 .../evaluate/experiments/exp_abc?project=proj_123` |
+| Eval | `✅ Evaluation → 3 insights 🔗 .../evaluate/experiments/exp_abc?project=proj_123` |

@@ -18,6 +18,7 @@ from ..config_loader import load_experiment_config, load_project_config
 from ..constants import DEFAULT_CONFIG_PATH, FLUXLOOP_DIR_NAME, SCENARIOS_DIR_NAME, STATE_DIR_NAME
 from ..project_paths import resolve_config_path
 from ..runner import ExperimentRunner
+from ..testing_types import MultiTurnConfig
 from ..turns import (
     TurnRecorder,
     format_warning_for_display,
@@ -58,6 +59,31 @@ def main(
         "--stream-after-upload/--stream-during-run",
         help="Stream turns only after upload completes (default: during run)",
     ),
+    multi_turn: Optional[bool] = typer.Option(
+        None,
+        "--multi-turn/--no-multi-turn",
+        help="Enable or disable multi-turn supervisor loop",
+    ),
+    max_turns: Optional[int] = typer.Option(
+        None,
+        "--max-turns",
+        help="Maximum number of turns per conversation (requires --multi-turn)",
+    ),
+    supervisor_provider: Optional[str] = typer.Option(
+        None,
+        "--supervisor-provider",
+        help="Supervisor LLM provider (openai, anthropic)",
+    ),
+    supervisor_model: Optional[str] = typer.Option(
+        None,
+        "--supervisor-model",
+        help="Supervisor LLM model (e.g., gpt-5-mini, claude-sonnet-4-5-20250514)",
+    ),
+    supervisor_api_key: Optional[str] = typer.Option(
+        None,
+        "--supervisor-api-key",
+        help="API key for supervisor LLM (or use OPENAI_API_KEY/ANTHROPIC_API_KEY env)",
+    ),
     smoke: bool = typer.Option(False, "--smoke", help="Run a smoke test"),
     full: bool = typer.Option(False, "--full", help="Run full test"),
     quiet: bool = typer.Option(False, "--quiet", help="Minimal output"),
@@ -93,6 +119,21 @@ def main(
         scenario=scenario,
         require_inputs_file=False,
     )
+
+    # Apply multi-turn options
+    if any(v is not None for v in [multi_turn, max_turns, supervisor_provider, supervisor_model, supervisor_api_key]):
+        if config.multi_turn is None:
+            config.multi_turn = MultiTurnConfig()
+        if multi_turn is not None:
+            config.multi_turn.enabled = multi_turn
+        if max_turns is not None:
+            config.multi_turn.max_turns = max_turns
+        if supervisor_provider is not None:
+            config.multi_turn.supervisor.provider = supervisor_provider
+        if supervisor_model is not None:
+            config.multi_turn.supervisor.model = supervisor_model
+        if supervisor_api_key is not None:
+            config.multi_turn.supervisor.api_key = supervisor_api_key
 
     # Check if inputs file exists
     if config.inputs_file:
