@@ -61,6 +61,7 @@ project_root/
         agents/           # Agent wrapper files
           wrapper.py
         configs/          # simulation.yaml, evaluation.yaml
+        contracts/        # Scenario contracts (YAML)
         inputs/           # Generated test inputs
         experiments/      # Test results
       scenario-b/
@@ -75,13 +76,18 @@ After each action, output: `✅ [Action] → [summary] 🔗 [url]`
 
 | Action | URL Pattern |
 |--------|-------------|
+| Data | (no URL) |
 | Project | `https://alpha.app.fluxloop.ai/simulate/scenarios?project={project_id}` |
 | Scenario | `https://alpha.app.fluxloop.ai/simulate/scenarios/{scenario_id}?project={project_id}` |
+| Contracts | same as Scenario URL |
 | Input Set | `https://alpha.app.fluxloop.ai/simulate/scenarios/{scenario_id}/inputs/{input_set_id}?project={project_id}` |
 | Bundle | `https://alpha.app.fluxloop.ai/simulate/scenarios/{scenario_id}/bundles/{bundle_version_id}?project={project_id}` |
 | Experiment | `https://alpha.app.fluxloop.ai/evaluate/experiments/{experiment_id}?project={project_id}` |
 
-Example: `✅ Scenario created → "Order Bot" (scn_abc) 🔗 https://alpha.app.fluxloop.ai/simulate/scenarios/scn_abc?project=proj_123`
+Examples:
+- `✅ Data → 3 files uploaded to project library`
+- `✅ Contracts → 3개 생성됨 🔗 [scenario URL]`
+- `✅ Scenario → "Order Bot" (scn_abc) 🔗 .../simulate/scenarios/scn_abc?project=proj_123`
 
 ---
 
@@ -152,7 +158,7 @@ Select number or type custom:
 
 ## Phase 2: Create Scenario (Once per scenario)
 
-> ⚠️ **Important:** Run from workspace root (where `.fluxloop/` should be created).  
+> ⚠️ **Important:** Run from workspace root (where `.fluxloop/` should be created).
 > Phase 1 (`projects select`) must be done first to establish the workspace.
 
 ```bash
@@ -161,24 +167,72 @@ pwd  # Should be your project directory, NOT ~
 
 # 1. Initialize local folder (creates .fluxloop/scenarios/<name>/)
 fluxloop init scenario order-bot  # ← Use Naming Rules (English kebab-case)
+```
 
-# 2. Create and refine web scenario
-fluxloop scenarios create --name "Order Bot" --goal "..."  # ← Name can be any language
+### Step 2: Context Collection
+
+Scan the workspace to understand the project before creating a scenario.
+
+1. **Auto-scan** codebase: README, main agent files, package.json/pyproject.toml, API specs, test files
+2. Summarize: project type, key features, dependencies, relevant docs
+3. **Interactive only:** Ask `"참고할 문서가 있나요? (경로 입력 / 스킵)"`
+4. Upload key files to project library:
+
+```bash
+fluxloop data push README.md
+fluxloop data push docs/api-spec.md --bind  # --bind attaches to current scenario
+```
+
+### Step 3: Scenario Recommendation → Create
+
+Suggest 3 scenarios based on collected context:
+
+| # | Type | Description |
+|---|------|-------------|
+| 1 | **Happy Path** | Core feature verification |
+| 2 | **Edge Cases** | Exception/boundary handling |
+| 3 | **Advanced** | Multi-turn or domain-specific |
+
+- **Interactive:** Present 3 options + "직접 입력", user selects
+- **Auto:** Select #1 automatically
+
+```bash
+fluxloop scenarios create --name "주문 정확성 테스트" --goal "..."
 fluxloop scenarios refine --scenario-id <id>
+```
 
-# 3. Create API key (saves to .fluxloop/.env, shared by all scenarios)
+### Step 4: Contracts
+
+After `scenarios refine`, server auto-generates contracts. Pull them locally:
+
+```bash
+fluxloop sync pull  # Saves contracts to .fluxloop/scenarios/<name>/contracts/
+```
+
+Output: `✅ Contracts → 3개 생성됨 🔗 [scenario URL]`
+Guide user: `📋 웹에서 contracts를 확인/수정할 수 있습니다`
+
+### Step 5–6: API Key & Wrapper
+
+```bash
+# 5. Create API key (saves to .fluxloop/.env, shared by all scenarios)
 fluxloop apikeys create
 
-# 4. Set up agent wrapper (if complex agent - see "Agent Wrapper Setup" section)
+# 6. Set up agent wrapper (if complex agent - see "Agent Wrapper Setup" section)
 #    Create: .fluxloop/scenarios/<name>/agents/wrapper.py
 #    Update: configs/simulation.yaml → runner.target: "agents.wrapper:run"
 ```
 
-> **Note:** API keys are project-scoped and stored in `.fluxloop/.env`.
-> All scenarios in the workspace share the same API key.
-> **Naming:** See "Naming Rules" in Phase 1 for folder/name conventions.
+### Phase 2 Interactive Checkpoints
 
-**Common mistake:** Running `init scenario` from home directory creates in `~/.fluxloop/` instead of workspace.
+| Step | Interactive | Auto |
+|------|------------|------|
+| Context: 참고 문서 | Ask | Skip |
+| Scenario: 3개 중 선택 | Ask (required) | Auto-select #1 |
+| Contracts: 확인 | URL only | URL only |
+
+> Max 2 required user responses in Interactive mode.
+> **Common mistake:** Running `init scenario` from home directory creates in `~/.fluxloop/` instead of workspace.
 
 ---
 
@@ -244,10 +298,17 @@ fluxloop sync pull --bundle-version-id <id>  # Auto-saves to current scenario
 fluxloop test --scenario <name>
 ```
 
-**Full generation (5 commands):**
+**Full generation (5~7 commands):**
 ```bash
 fluxloop personas suggest --scenario-id <id>
 fluxloop inputs synthesize --scenario-id <id>  # Use --timeout 300 for large sets
+
+# (Interactive only) QC loop — Auto mode skips this entirely
+fluxloop inputs qc --scenario-id <id> --input-set-id <id>
+# → Show results (format, duplicates, diversity, quality score)
+# → Ask "개선할까요?" → if yes:
+fluxloop inputs refine --scenario-id <id> --input-set-id <id>  # Returns new input_set_id
+
 fluxloop bundles publish --scenario-id <id> --input-set-id <id>
 fluxloop sync pull --bundle-version-id <id>    # Auto-saves to current scenario
 fluxloop test --scenario <name>
@@ -318,6 +379,58 @@ fluxloop evaluate --experiment-id <id> --wait --timeout 900 --poll-interval 5
 - When a job finishes as `completed` or `partial` with at least one run completed, insights/recommendations are generated and the CLI prints the latest headlines.
 - If the job stays `queued` for >30s without `locked_at`, the CLI warns that workers may be down or backlog is high.
 
+### Web Handoff
+
+After evaluation completes, output:
+
+```
+✅ Evaluation → N insights 🔗 [experiment URL]
+📋 웹에서 상세 분석을 확인하세요:
+  - Decision: gates, budgets, baseline 비교
+  - Insights: 카테고리별 발견사항 (severity 표시)
+  - Recommendations: 개선 제안 (priority 표시)
+  - Baseline: 현재 결과를 baseline으로 설정 가능
+💡 에이전트 개선: 'improve my agent' → Phase 6
+```
+
+---
+
+## Phase 6: Improve & Re-test (Iteration Loop)
+
+Triggered by: Phase 5 completion, `"improve my agent"`, `"에이전트 개선해줘"`, `"re-test"`
+
+```bash
+# [6-1] Sync latest state & analyze results
+fluxloop sync pull --bundle-version-id <id>
+fluxloop test results --scenario <name>
+# → Claude Code analyzes: warning turns, failure patterns, contract violations
+# → Identify related code locations
+
+# [6-2] Fix agent code
+# → Suggest fixes based on analysis → ALWAYS require user confirmation (even in Auto mode)
+# → After edit, hook runs: fluxloop test --smoke --quiet
+
+# [6-3] Re-test with same bundle
+fluxloop sync pull --bundle-version-id <id>   # Same bundle
+fluxloop test --scenario <name>
+
+# [6-4] Re-evaluate → Web handoff
+fluxloop evaluate --experiment-id <new_id> --wait
+# → Output: "✅ Re-evaluation → N insights 🔗 [URL]"
+# → Guide: "📋 웹에서 이전 baseline과 비교하세요"
+```
+
+> ⚠️ **Code changes always require user confirmation**, even in Auto mode.
+
+| Step | Interactive | Auto |
+|------|------------|------|
+| [6-1] Result analysis | Show + confirm | Show only |
+| [6-2] Code fix | Suggest → confirm (required) | Suggest → confirm (required) |
+| [6-3] Re-test | Ask "재테스트?" | Auto-proceed |
+| [6-4] Re-evaluate | Ask "재평가?" | Auto-proceed |
+
+Repeat loop: unsatisfied → back to [6-1]
+
 ---
 
 ## Agent Wrapper Setup
@@ -363,6 +476,9 @@ To run tests, FluxLoop needs to invoke your agent via `runner.target` in `config
 | `fluxloop test --scenario <name> --multi-turn` | Run multi-turn test |
 | `fluxloop test --scenario <name> --multi-turn --max-turns 5` | Multi-turn test with max 5 turns |
 | `fluxloop test results --scenario <name>` | View latest test results |
+| `fluxloop data push <file> --bind` | Upload file to project library (--bind attaches to scenario) |
+| `fluxloop inputs qc --scenario-id <id> --input-set-id <id>` | Quality check on inputs (Interactive only) |
+| `fluxloop inputs refine --scenario-id <id> --input-set-id <id>` | AI-based input improvement |
 | `fluxloop evaluate --experiment-id <id> --wait` | Trigger evaluation and show insight/reco headlines |
 
 ---
@@ -389,13 +505,17 @@ To run tests, FluxLoop needs to invoke your agent via `runner.target` in `config
 
 1. **Ask execution mode at start** (Auto or Interactive)
 2. **Always check context first** (`fluxloop context show`)
-3. **Check existing data with list** (`bundles list`, `inputs list`)
-4. **Use Naming Rules** (English kebab-case for folders, any language for display names)
-5. **Output summary after each action** (`✅ Action → summary 🔗 url`)
-6. **Run sync pull + test separately** (Do NOT use `--pull`)
-7. **Use explicit IDs** (`--bundle-version-id`, `--scenario-id`)
-8. **Complex agents need wrapper** (See "Agent Wrapper Setup" + Appendix A1)
-9. **Multi-turn: ask settings + use `!` prefix** (`! fluxloop test --multi-turn`)
+3. **Phase 2: Recommend scenarios** — scan codebase, suggest 3, avoid blank-page problem
+4. **Phase 2: Auto-generate contracts** — `sync pull` after `scenarios refine`
+5. **Check existing data with list** (`bundles list`, `inputs list`)
+6. **Use Naming Rules** (English kebab-case for folders, any language for display names)
+7. **Output summary after each action** (`✅ Action → summary 🔗 url`)
+8. **Run sync pull + test separately** (Do NOT use `--pull`)
+9. **Use explicit IDs** (`--bundle-version-id`, `--scenario-id`)
+10. **Phase 5 → Web handoff** — guide user to web for detailed analysis
+11. **Phase 6: Iteration loop** — analyze → fix (always confirm) → re-test → re-evaluate
+12. **Complex agents need wrapper** (See "Agent Wrapper Setup" + Appendix A1)
+13. **Multi-turn: ask settings + use `!` prefix** (`! fluxloop test --multi-turn`)
 
 ---
 
@@ -439,8 +559,11 @@ def run(input_text: str, metadata: dict = None) -> str:
 |-------|---------|
 | Login | `✅ Login → user@example.com` |
 | Project | `✅ Project → "my-bot" (proj_123) 🔗 .../simulate/scenarios?project=proj_123` |
+| Data | `✅ Data → 3 files uploaded to project library` |
 | Scenario | `✅ Scenario → "Happy Path" (scn_456) 🔗 .../simulate/scenarios/scn_456?project=proj_123` |
+| Contracts | `✅ Contracts → 3개 생성됨 🔗 .../simulate/scenarios/scn_456?project=proj_123` |
 | Input Set | `✅ Input Set → inp_789 (10 inputs) 🔗 .../simulate/scenarios/scn_456/inputs/inp_789?project=proj_123` |
+| QC | `✅ QC → format: 10/10, duplicates: 0, diversity: high` |
 | Bundle | `✅ Bundle → v1 (bnd_012) 🔗 .../simulate/scenarios/scn_456/bundles/bnd_012?project=proj_123` |
 | Test | `✅ Test → exp_abc (10 runs) 🔗 .../evaluate/experiments/exp_abc?project=proj_123` |
 | Eval | `✅ Evaluation → 3 insights 🔗 .../evaluate/experiments/exp_abc?project=proj_123` |

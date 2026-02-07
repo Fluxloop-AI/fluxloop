@@ -361,6 +361,34 @@ def _write_criteria(criteria_dir: Path, criteria_pack: List[Dict[str, Any]]) -> 
         )
 
 
+def _write_contracts(contracts_dir: Path, contracts: List[Dict[str, Any]]) -> None:
+    """Write contracts to individual YAML files.
+    
+    Contract structure from backend:
+    {
+        "type": "must" | "should" | "must_not",
+        "description": "...",
+        "category": "response" | "safety" | "ux" | ...
+    }
+    """
+    contracts_dir.mkdir(parents=True, exist_ok=True)
+    for idx, item in enumerate(contracts):
+        if not isinstance(item, dict):
+            continue
+        contract_type = item.get("type") or "contract"
+        category = item.get("category") or ""
+        if category:
+            name = f"{contract_type}_{category}_{idx + 1}"
+        else:
+            name = f"{contract_type}_{idx + 1}"
+        filename = _slugify(name)
+        path = contracts_dir / f"{filename}.yaml"
+        path.write_text(
+            yaml.safe_dump(item, sort_keys=False, allow_unicode=True),
+            encoding="utf-8",
+        )
+
+
 def _extract_input_text(messages: Any) -> str:
     if isinstance(messages, list):
         for entry in messages:
@@ -578,9 +606,20 @@ def pull(
     _write_json(sync_dir / "criteria.json", {"items": criteria_pack})
     _write_criteria(state_dir / "criteria", criteria_pack if isinstance(criteria_pack, list) else [])
 
+    # Save scenario_context (scenario info + contracts)
+    scenario_context = data.get("scenario_context") or {}
+    scenario_info = scenario_context.get("scenario") if isinstance(scenario_context, dict) else {}
+    contracts = scenario_context.get("contracts", []) if isinstance(scenario_context, dict) else []
+    if scenario_info:
+        _write_json(sync_dir / "scenario.json", scenario_info)
+    if contracts:
+        _write_json(sync_dir / "contracts.json", {"items": contracts})
+        _write_contracts(state_dir / "contracts", contracts if isinstance(contracts, list) else [])
+
     sync_state = {
         "project_id": data.get("bundle_version", {}).get("project_id") or project_id,
         "bundle_version_id": data.get("bundle_version", {}).get("id"),
+        "scenario_id": scenario_info.get("id") if scenario_info else None,
         "inputs_file": inputs_file,
         "pulled_at": data.get("sync_meta", {}).get("pulled_at"),
         "api_url": api_url,
@@ -589,6 +628,8 @@ def pull(
 
     if not quiet:
         console.print(f"[green]✓[/green] Pulled {len(inputs_payload['inputs'])} inputs")
+        if contracts:
+            console.print(f"[green]✓[/green] Pulled {len(contracts)} contracts")
         console.print(f"[green]✓[/green] Saved inputs to {inputs_path}")
         console.print(f"[green]✓[/green] Saved sync metadata to {_sync_state_paths(scenario_root)[0]}")
 

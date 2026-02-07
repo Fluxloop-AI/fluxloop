@@ -18,10 +18,11 @@ from ..config_loader import load_experiment_config, load_project_config
 from ..constants import DEFAULT_CONFIG_PATH, FLUXLOOP_DIR_NAME, SCENARIOS_DIR_NAME, STATE_DIR_NAME
 from ..project_paths import resolve_config_path
 from ..runner import ExperimentRunner
-from ..testing_types import MultiTurnConfig
+from fluxloop.schemas import MultiTurnConfig
 from ..turns import (
     TurnRecorder,
     format_warning_for_display,
+    load_contracts,
     load_criteria_items,
     load_guardrails_from_config,
     render_result_markdown,
@@ -182,6 +183,7 @@ def main(
     recorder = TurnRecorder(runner.output_dir / "turns.jsonl", guardrails)
     state_dir = scenario_root / STATE_DIR_NAME
     criteria_items = load_criteria_items(state_dir / "criteria")
+    contracts = load_contracts(state_dir / "contracts")
     result_path = runner.output_dir / "result.md"
     result_path.write_text("", encoding="utf-8")
     latest_path = write_latest_result_link(scenario_root, result_path)
@@ -466,6 +468,15 @@ def main(
     console.print(
         f"결과: {summary.total_turns} turns, {summary.warning_turns} warning turns"
     )
+    if contracts:
+        console.print("\n[Contracts]")
+        for contract in contracts:
+            ctype = contract.get("type", "contract")
+            desc = contract.get("description", "")
+            category = contract.get("category", "")
+            prefix = {"must": "✓", "should": "○", "must_not": "✗"}.get(ctype, "•")
+            cat_label = f" [{category}]" if category else ""
+            console.print(f"  {prefix} {ctype.upper()}{cat_label}: {desc}")
     if criteria_items:
         console.print("\n[평가 기준]")
         for item in criteria_items:

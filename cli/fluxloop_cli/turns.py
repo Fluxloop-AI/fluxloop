@@ -78,6 +78,29 @@ def load_criteria_items(criteria_dir: Path) -> List[str]:
     return items
 
 
+def load_contracts(contracts_dir: Path) -> List[Dict[str, Any]]:
+    """Load contracts from YAML files in contracts directory.
+    
+    Contract structure:
+    {
+        "type": "must" | "should" | "must_not",
+        "description": "...",
+        "category": "response" | "safety" | "ux" | ...
+    }
+    
+    Returns:
+        List of contract dictionaries.
+    """
+    if not contracts_dir.exists():
+        return []
+    contracts: List[Dict[str, Any]] = []
+    for path in sorted(contracts_dir.glob("*.yaml")):
+        payload = yaml.safe_load(path.read_text()) or {}
+        if isinstance(payload, dict):
+            contracts.append(payload)
+    return contracts
+
+
 def _slugify(value: str) -> str:
     value = value.strip().lower()
     value = re.sub(r"[^a-z0-9_-]+", "_", value)

@@ -144,6 +144,7 @@ For when you need direct control:
 | `/fluxloop:smoke` | Quick smoke test |
 | `/fluxloop:pull` | Pull test data from Web |
 | `/fluxloop:evaluate` | Trigger server-side evaluation (supports `--wait`) |
+| `/fluxloop:improve` | Analyze results → fix agent → re-test → re-evaluate |
 | `/fluxloop:status` | Check current status |
 
 > 💡 **Recommendation**: Use natural language with the skill instead. It's smarter and handles edge cases automatically.
@@ -178,6 +179,7 @@ your-project/
 │       └── my-test/
 │           ├── agents/       # Agent wrappers
 │           ├── configs/      # Configuration files
+│           ├── contracts/    # Scenario contracts (YAML)
 │           ├── inputs/       # Test inputs
 │           └── experiments/  # Test results
 └── fluxloop.yaml             # Project settings

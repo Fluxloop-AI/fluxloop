@@ -17,6 +17,7 @@ from .commands import (
     config,
     context,
     criteria,
+    data,
     evaluate,
     generate,
     init,
@@ -78,6 +79,7 @@ app.add_typer(local_context.app, name="context", help="Manage local working cont
 app.add_typer(personas.app, name="personas", help="Manage test personas")
 app.add_typer(inputs.app, name="inputs", help="Synthesize and manage test inputs")
 app.add_typer(bundles.app, name="bundles", help="Manage test bundles")
+app.add_typer(data.app, name="data", help="Manage project data (Knowledge & Datasets)")
 
 
 def version_callback(value: bool):

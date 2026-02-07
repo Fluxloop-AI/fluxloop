@@ -102,17 +102,22 @@ def suggest(
         table.add_column("Description")
 
         for persona in personas:
-            difficulty = persona.get("difficulty", "unknown")
+            attrs = persona.get("attributes") or {}
+            difficulty = attrs.get("difficulty") or persona.get("difficulty", "unknown")
             difficulty_display = {
                 "easy": "[green]Easy[/green]",
                 "medium": "[yellow]Medium[/yellow]",
                 "hard": "[red]Hard[/red]",
             }.get(difficulty, difficulty)
+            description = (
+                attrs.get("character_summary")
+                or persona.get("description", "N/A")
+            )
 
             table.add_row(
                 difficulty_display,
                 persona.get("name", "N/A"),
-                persona.get("description", "N/A"),
+                description,
             )
 
         console.print(table)
@@ -177,18 +182,23 @@ def list_personas(
         table.add_column("Description")
 
         for persona in personas:
-            difficulty = persona.get("difficulty", "unknown")
+            attrs = persona.get("attributes") or {}
+            difficulty = attrs.get("difficulty") or persona.get("difficulty", "unknown")
             difficulty_display = {
                 "easy": "[green]Easy[/green]",
                 "medium": "[yellow]Medium[/yellow]",
                 "hard": "[red]Hard[/red]",
             }.get(difficulty, difficulty)
+            description = (
+                attrs.get("character_summary")
+                or persona.get("description", "N/A")
+            )
 
             table.add_row(
                 persona.get("id", "N/A"),
                 persona.get("name", "N/A"),
                 difficulty_display,
-                persona.get("description", "N/A")[:50] + "..." if len(persona.get("description", "")) > 50 else persona.get("description", "N/A"),
+                description[:50] + "..." if len(description) > 50 else description,
             )
 
         console.print(table)

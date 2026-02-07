@@ -78,7 +78,7 @@ fluxloop apikeys create
 
 ```bash
 # Run a smoke test to verify everything works
-fluxloop test --scenario my-test --smoke --skip-pull --skip-upload
+fluxloop test --scenario my-test --smoke --skip-upload
 ```
 
 ## Troubleshooting
