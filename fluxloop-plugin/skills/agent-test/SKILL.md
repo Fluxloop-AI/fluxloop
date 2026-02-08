@@ -301,7 +301,7 @@ fluxloop test --scenario <name>
 **Full generation (5~7 commands):**
 ```bash
 fluxloop personas suggest --scenario-id <id>
-fluxloop inputs synthesize --scenario-id <id>  # Use --timeout 300 for large sets
+fluxloop inputs synthesize --scenario-id <id>  # Use --timeout 300 for large sets, --total-count 2 for quick small test
 
 # (Interactive only) QC loop — Auto mode skips this entirely
 fluxloop inputs qc --scenario-id <id> --input-set-id <id>
