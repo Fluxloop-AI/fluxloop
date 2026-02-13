@@ -5,10 +5,10 @@ description: |
   Keywords: compare, comparison, prompt version, stability, A/B test, diff
 
   Auto-activates on requests like:
-  - "compare prompts", "프롬프트 비교해줘"
-  - "stability test", "안정성 테스트"
-  - "v3 vs v4", "버전 비교"
-  - "run same input multiple times", "같은 인풋으로 여러번 돌려줘"
+  - "compare prompts", "compare prompt versions"
+  - "stability test", "run a stability test"
+  - "v3 vs v4", "version comparison"
+  - "run same input multiple times", "run the same input multiple times"
 ---
 
 # FluxLoop Prompt Compare Skill
@@ -22,10 +22,10 @@ Compare prompt versions by running the same bundle multiple times and analyzing 
 ## Prerequisite
 
 Requires a FluxLoop scenario to exist (agent-test Phase 1~2 completed).
-If no scenario exists, guide: `"먼저 시나리오 셋업이 필요합니다. 'test my agent'로 시작하세요."`
+If no scenario exists, guide: `"Scenario setup is required first. Start with 'test my agent'."`
 
-> **Staging:** 사용자가 "staging"을 언급하면 setup 단계에서 `--staging` 플래그를 우선 사용합니다.
-> (커스텀 도메인이 필요한 경우가 아니면 `--api-url` 사용하지 않음)
+> **Staging:** if the user mentions "staging", prefer the `--staging` flag during setup.
+> (avoid `--api-url` unless a custom domain is required)
 > `fluxloop auth login --staging`, `fluxloop projects select <id> --staging`
 
 ---
@@ -70,7 +70,7 @@ bundles list
           fluxloop bundles publish --scenario-id <id> --input-set-id <id>
 ```
 
-> **Tip:** 비교 테스트에는 인풋 1-3개면 충분합니다. 새로 생성할 때 `--total-count 2`로 소규모 번들을 만드세요.
+> **Tip:** For comparison tests, 1-3 inputs are usually enough. When creating new data, use `--total-count 2` for a small bundle.
 
 Key info to display: **version/name, tag/description, input count, created date**
 
@@ -89,9 +89,9 @@ fluxloop sync pull --bundle-version-id <bundle_version_id>
 Ask the user:
 
 ```
-1. 반복 횟수? (기본: 5)
-2. 멀티턴? (기본: 싱글턴) → yes일 경우 최대 턴 수도 확인
-3. 현재 프롬프트 버전 라벨? (예: "v3", "기존 버전")
+1. Number of repeats? (default: 5)
+2. Multi-turn? (default: single-turn) → if yes, also confirm max turns
+3. Current prompt version label? (e.g., "v3", "current version")
 ```
 
 Set iterations in `configs/simulation.yaml`:
@@ -129,15 +129,15 @@ fluxloop test --scenario <name>
 After completion:
 1. Note the experiment directory: `.fluxloop/scenarios/<name>/experiments/exp_<timestamp>/`
 2. Record as `experiment_A` with the user's version label + git diff
-3. Output: `✅ Baseline → exp_<timestamp> (라벨: "v3", N runs)`
+3. Output: `✅ Baseline → exp_<timestamp> (label: "v3", N runs)`
 
 ---
 
 ## Phase 4: Prompt Modification
 
 ```
-프롬프트를 수정해주세요.
-수정이 완료되면 알려주세요. 새 버전 라벨도 알려주세요 (예: "v4").
+Please update the prompt.
+Let me know when you're done, and share the new version label (e.g., "v4").
 ```
 
 Wait for user confirmation. Do NOT modify any code yourself.
@@ -170,7 +170,7 @@ fluxloop test --scenario <name>
 
 After completion:
 1. Note the experiment directory as `experiment_B`
-2. Output: `✅ Variant → exp_<timestamp> (라벨: "v4", N runs)`
+2. Output: `✅ Variant → exp_<timestamp> (label: "v4", N runs)`
 
 ---
 
@@ -206,8 +206,8 @@ Generate a comparison report with these sections:
 #### 1) Prompt Changes (git diff summary)
 
 ```markdown
-## 프롬프트 변경 내용 (v3 → v4)
-- [변경된 파일과 핵심 수정 내용 요약]
+## Prompt Changes (v3 -> v4)
+- [Summary of changed files and key edits]
 ```
 
 #### 2) Per-Input Analysis
@@ -215,40 +215,40 @@ Generate a comparison report with these sections:
 Group traces by `input` field, then compare across versions:
 
 ```markdown
-## 인풋: "데이터 분석할래"
+## Input: "I want to analyze data"
 
-### v3 (5회)
-| # | 출력 요약 | 토큰 | 시간(ms) |
+### v3 (5 runs)
+| # | Output Summary | Tokens | Time (ms) |
 |---|----------|------|----------|
-| 1 | [핵심 1줄 요약] | 150 | 1200 |
+| 1 | [One-line key summary] | 150 | 1200 |
 | 2 | ... | ... | ... |
 
-### v4 (5회)
-| # | 출력 요약 | 토큰 | 시간(ms) |
+### v4 (5 runs)
+| # | Output Summary | Tokens | Time (ms) |
 |---|----------|------|----------|
-| 1 | [핵심 1줄 요약] | 130 | 1100 |
+| 1 | [One-line key summary] | 130 | 1100 |
 | 2 | ... | ... | ... |
 
-### 비교
-- **버전 내 일관성**: v3 높음 / v4 보통
-- **버전 간 차이**: 뚜렷함 / 미미함
-- **핵심 변화**: [구체적으로 무엇이 달라졌는지]
+### Comparison
+- **Within-version consistency**: v3 high / v4 medium
+- **Cross-version difference**: clear / minimal
+- **Key change**: [What changed concretely]
 ```
 
 #### 3) Overall Summary
 
 ```markdown
-## 종합 비교
+## Overall Comparison
 
-| 지표 | v3 | v4 |
+| Metric | v3 | v4 |
 |------|----|----|
-| 평균 토큰 수 | 150 | 130 |
-| 평균 응답 시간(ms) | 1200 | 1100 |
-| 성공률 | 100% | 100% |
-| 버전 내 일관성 | 높음 | 보통 |
+| Avg token count | 150 | 130 |
+| Avg response time (ms) | 1200 | 1100 |
+| Success rate | 100% | 100% |
+| Within-version consistency | High | Medium |
 
-### 결론
-[프롬프트 변경 내용 → 결과 변화를 연결해서 효과 요약]
+### Conclusion
+[Summarize impact by linking prompt changes to result changes]
 ```
 
 ---
@@ -256,15 +256,15 @@ Group traces by `input` field, then compare across versions:
 ## Phase 7: Next Actions
 
 ```
-다음 중 선택하세요:
-1. 추가 비교 — 프롬프트를 다시 수정하고 비교 (→ Phase 4)
-2. Web 상세 보기 — experiment URL 제공
-3. 서버 평가 — fluxloop evaluate로 상세 분석
-4. 완료
+Choose one:
+1. Additional comparison — update prompt again and compare (-> Phase 4)
+2. View Web details — provide the raw experiment URL (`https://...`) so it can be copied directly
+3. Server evaluation — run detailed analysis with `fluxloop evaluate`
+4. Done
 ```
 
-If "추가 비교": loop back to Phase 4 (same bundle reused).
-If "서버 평가":
+If "Additional comparison": loop back to Phase 4 (same bundle reused).
+If "Server evaluation":
 ```bash
 fluxloop evaluate --experiment-id <exp_B_id> --wait
 ```

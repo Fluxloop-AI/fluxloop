@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fluxloop-cli"
-version = "0.3.6"
+version = "0.3.8"
 description = "FluxLoop CLI for running agent simulations"
 authors = [
     {name = "FluxLoop Team", email = "team@fluxloop.dev"}

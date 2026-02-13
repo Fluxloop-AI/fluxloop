@@ -337,7 +337,8 @@ def create_env_file() -> str:
         """
         # FluxLoop Configuration
         # API URL is managed via .fluxloop/project.json (set by 'fluxloop projects select')
-        FLUXLOOP_SYNC_API_KEY=your-api-key-here
+        # Sync API key is managed at workspace scope in .fluxloop/.env.
+        # Use: fluxloop apikeys create --staging (or --api-url ...)
         FLUXLOOP_ENABLED=true
         FLUXLOOP_DEBUG=false
         FLUXLOOP_SAMPLE_RATE=1.0

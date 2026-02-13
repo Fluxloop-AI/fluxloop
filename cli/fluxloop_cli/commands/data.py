@@ -74,10 +74,18 @@ def _compute_content_hash(file_path: Path) -> str:
     return sha256.hexdigest()
 
 
-def _infer_file_type(file_path: Path) -> str:
-    """Infer file type from extension."""
-    ext = file_path.suffix.lower().lstrip(".")
-    return ext or "unknown"
+def _infer_file_type(data_category: str) -> str:
+    """
+    Infer API file_type enum from data category.
+
+    API accepts: 'document', 'structured', 'sample'.
+    For CLI uploads:
+    - KNOWLEDGE -> document
+    - DATASET   -> structured
+    """
+    if data_category == "DATASET":
+        return "structured"
+    return "document"
 
 
 @app.command()
@@ -158,7 +166,7 @@ def push(
     filename = file.name
     file_size = file.stat().st_size
     mime_type = _infer_mime_type(file)
-    file_type = _infer_file_type(file)
+    file_type = _infer_file_type(data_category)
 
     if not quiet:
         console.print(f"[cyan]Uploading {filename}...[/cyan]")

@@ -354,6 +354,9 @@ def refine(
 
 @app.command()
 def qc(
+    project_id: Optional[str] = typer.Option(
+        None, "--project-id", help="Project ID (defaults to current context)"
+    ),
     scenario_id: str = typer.Option(..., "--scenario-id", help="Scenario ID"),
     input_set_id: str = typer.Option(..., "--input-set-id", help="Input set ID to check"),
     file: Optional[Path] = typer.Option(
@@ -377,8 +380,17 @@ def qc(
     api_url = resolve_api_url(api_url, staging=staging)
     effective_timeout = timeout_seconds or _get_default_timeout()
 
+    # Use context if no project_id specified
+    if not project_id:
+        project_id = get_current_web_project_id()
+        if not project_id:
+            console.print("[yellow]No Web Project selected.[/yellow]")
+            console.print("[dim]Select one with: fluxloop projects select <id>[/dim]")
+            raise typer.Exit(1)
+
     # Build payload
     payload: Dict[str, Any] = {
+        "project_id": project_id,
         "scenario_id": scenario_id,
         "input_set_id": input_set_id,
     }
@@ -387,6 +399,8 @@ def qc(
     if file:
         file_data = load_payload_file(file)
         payload.update(file_data)
+        if not payload.get("project_id"):
+            payload["project_id"] = project_id
 
     try:
         console.print("[cyan]Running quality checks...[/cyan]")
@@ -440,6 +454,9 @@ def qc(
                 similarity = issue.get("similarity", 0)
                 console.print(f"  - {id1} and {id2} similar ({similarity:.0%})")
 
+    except typer.Exit:
+        # Keep rich API validation output from handle_api_error intact.
+        raise
     except httpx.TimeoutException:
         console.print(
             f"[red]✗[/red] Quality check timed out after {effective_timeout:.0f}s.\n"

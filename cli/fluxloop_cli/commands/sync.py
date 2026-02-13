@@ -14,6 +14,7 @@ from uuid import UUID, uuid4
 import httpx
 import typer
 import yaml
+from dotenv import dotenv_values
 from rich.console import Console
 
 from ..api_utils import resolve_api_url
@@ -27,6 +28,7 @@ from ..turns import load_turns, summarize_turns, utc_now_iso
 
 app = typer.Typer(help="Sync bundle inputs and upload run results.")
 console = Console()
+_API_KEY_PLACEHOLDERS = {"your-api-key-here"}
 
 
 def _get_effective_scenario(scenario: Optional[str]) -> Optional[str]:
@@ -77,6 +79,34 @@ def _get_workspace_env_path(base_dir: Optional[Path] = None) -> Optional[Path]:
     return None
 
 
+def _is_placeholder_api_key(value: Optional[str]) -> bool:
+    if value is None:
+        return True
+    return value.strip() in _API_KEY_PLACEHOLDERS
+
+
+def _clean_api_key(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    cleaned = value.strip()
+    if not cleaned or _is_placeholder_api_key(cleaned):
+        return None
+    return cleaned
+
+
+def _read_sync_api_key_from_env(env_path: Optional[Path]) -> Optional[str]:
+    if env_path is None or not env_path.exists():
+        return None
+    values = dotenv_values(env_path)
+    for key_name in ("FLUXLOOP_SYNC_API_KEY", "FLUXLOOP_API_KEY"):
+        value = values.get(key_name)
+        if isinstance(value, str):
+            cleaned = _clean_api_key(value)
+            if cleaned:
+                return cleaned
+    return None
+
+
 def _load_env(scenario: Optional[str], base_dir: Optional[Path] = None) -> None:
     """Load environment variables from .env files.
     
@@ -85,7 +115,11 @@ def _load_env(scenario: Optional[str], base_dir: Optional[Path] = None) -> None:
     2. .fluxloop/scenarios/{scenario}/.env (scenario specific - OPENAI_API_KEY, etc.)
     """
     import fluxloop
-    
+
+    # Preserve shell-provided keys before .env files are loaded.
+    original_sync_key = os.getenv("FLUXLOOP_SYNC_API_KEY")
+    original_legacy_key = os.getenv("FLUXLOOP_API_KEY")
+
     # Load workspace-level .env first (API keys shared by all scenarios)
     workspace_env = _get_workspace_env_path(base_dir)
     if workspace_env and workspace_env.exists():
@@ -98,18 +132,34 @@ def _load_env(scenario: Optional[str], base_dir: Optional[Path] = None) -> None:
     source_dir = _resolve_scenario_dir(scenario, base_dir)
     load_env_chain(source_dir, refresh_config=False)
 
+    # Prevent scenario placeholders from overriding real keys.
+    if _is_placeholder_api_key(os.getenv("FLUXLOOP_SYNC_API_KEY")):
+        if _clean_api_key(original_sync_key):
+            os.environ["FLUXLOOP_SYNC_API_KEY"] = original_sync_key.strip()
+        else:
+            workspace_key = _read_sync_api_key_from_env(workspace_env)
+            if workspace_key:
+                os.environ["FLUXLOOP_SYNC_API_KEY"] = workspace_key
 
-def _resolve_api_key(override: Optional[str]) -> str:
-    key = (
-        override
-        or os.getenv("FLUXLOOP_SYNC_API_KEY")
-        or os.getenv("FLUXLOOP_API_KEY")
-    )
+    if _is_placeholder_api_key(os.getenv("FLUXLOOP_API_KEY")) and _clean_api_key(original_legacy_key):
+        os.environ["FLUXLOOP_API_KEY"] = original_legacy_key.strip()
+
+
+def _resolve_api_key(override: Optional[str], *, base_dir: Optional[Path] = None) -> str:
+    key = _clean_api_key(override)
+    if not key:
+        key = _clean_api_key(os.getenv("FLUXLOOP_SYNC_API_KEY"))
+    if not key:
+        key = _clean_api_key(os.getenv("FLUXLOOP_API_KEY"))
+    if not key:
+        key = _read_sync_api_key_from_env(_get_workspace_env_path(base_dir))
     if not key:
         raise typer.BadParameter(
             "Sync API key is not set. "
             "Use 'fluxloop apikeys create' to generate one, "
-            "or 'fluxloop config set-sync-key' if you have an existing key."
+            "or 'fluxloop config set-sync-key' if you have an existing key. "
+            "Detected placeholder value in .env; remove FLUXLOOP_SYNC_API_KEY=your-api-key-here "
+            "from scenario-level .env files."
         )
     return key
 
@@ -158,7 +208,7 @@ def precreate_runs(
     """
     _load_env(scenario, base_dir)
     api_url = resolve_api_url(api_url)
-    api_key = _resolve_api_key(api_key)
+    api_key = _resolve_api_key(api_key, base_dir=base_dir)
     scenario_root = _resolve_scenario_dir(scenario, base_dir)
     sync_state = _read_sync_state(scenario_root)
 
@@ -541,7 +591,7 @@ def pull(
     api_url = resolve_api_url(api_url, staging=staging)
     api_key = _resolve_api_key(api_key)
 
-    if not project_id:
+    if not project_id and not bundle_version_id:
         project_id = get_current_web_project_id()
         if not project_id and not bundle_version_id:
             console.print("[yellow]No Web Project selected.[/yellow]")
@@ -556,14 +606,26 @@ def pull(
         "include_criteria": True,
     }
 
-    with httpx.Client(base_url=api_url, timeout=30.0) as client:
-        resp = client.post(
-            "/api/sync/pull",
-            json=payload,
-            headers={"Authorization": f"Bearer {api_key}"},
-        )
-        resp.raise_for_status()
-        data = resp.json()
+    try:
+        with httpx.Client(base_url=api_url, timeout=30.0) as client:
+            resp = client.post(
+                "/api/sync/pull",
+                json=payload,
+                headers={"Authorization": f"Bearer {api_key}"},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+    except httpx.HTTPStatusError as exc:
+        detail = ""
+        try:
+            detail = exc.response.json().get("detail", "")
+        except Exception:
+            detail = exc.response.text.strip()
+        if detail:
+            console.print(f"[red]✗[/red] Sync pull failed ({exc.response.status_code}): {detail}")
+        else:
+            console.print(f"[red]✗[/red] Sync pull failed ({exc.response.status_code})")
+        raise typer.Exit(1)
 
     scenario_root = _resolve_scenario_dir(scenario)
     state_dir = _ensure_state_dir(scenario_root)

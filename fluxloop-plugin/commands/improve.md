@@ -49,9 +49,9 @@ fluxloop evaluate --experiment-id <new_id> --wait
 
 Output:
 ```
-✅ Re-evaluation → N insights 🔗 [URL]
-📋 웹에서 이전 baseline과 비교하세요
-💡 계속 개선하려면 다시 실행
+✅ Re-evaluation → N insights 🔗 https://alpha.app.fluxloop.ai/evaluate/experiments/exp_new?project=proj_123
+📋 Compare with the previous baseline in the web app
+💡 Run again to continue improving
 ```
 
 ## Loop
@@ -62,4 +62,4 @@ Unsatisfied with results → repeat from step 1.
 
 - Code changes **always** require user confirmation, even in Auto mode
 - Re-test uses the **same bundle** to ensure fair before/after comparison
-- Turn streaming and auto-upload are enabled by default — Web에서 실시간 모니터링 가능
+- Turn streaming and auto-upload are enabled by default — real-time monitoring is available in the web app

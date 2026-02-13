@@ -23,6 +23,11 @@ app = typer.Typer(help="Manage test bundles")
 console = Console()
 
 
+def _publish_bundle(client: Any, bundle_version_id: str):
+    """Publish a bundle via the dedicated publish endpoint."""
+    return client.post(f"/api/bundles/{bundle_version_id}/publish")
+
+
 @app.command()
 def publish(
     scenario_id: str = typer.Option(..., "--scenario-id", help="Scenario ID for the bundle"),
@@ -48,7 +53,7 @@ def publish(
 
     This command performs two operations:
     1. Creates a bundle with status 'draft'
-    2. Updates status to 'published'
+    2. Publishes the bundle via publish endpoint
     """
     api_url = resolve_api_url(api_url, staging=staging)
 
@@ -104,12 +109,10 @@ def publish(
         if "personas_count" in data:
             console.print(f"  [green]✓[/green] Personas: {data['personas_count']}")
 
-        # Step 2: Update status to published
-        console.print("  [dim]Changing status: draft → published...[/dim]")
-        update_payload = {"status": "published"}
-
-        resp = client.put(f"/api/bundles/{bundle_version_id}", json=update_payload)
-        handle_api_error(resp, f"bundle {bundle_version_id} status update")
+        # Step 2: Publish bundle using dedicated endpoint
+        console.print("  [dim]Publishing bundle...[/dim]")
+        resp = _publish_bundle(client, bundle_version_id)
+        handle_api_error(resp, f"bundle {bundle_version_id} publish")
 
         console.print(f"  [green]✓[/green] Status changed: draft → published")
 
@@ -134,7 +137,7 @@ def publish(
         if "bundle_version_id" in locals():
             console.print(f"\n[yellow]Created bundle (draft): {bundle_version_id}[/yellow]")
             console.print("\n[bold]Recovery options:[/bold]")
-            console.print(f"  Update status: fluxloop bundles update --bundle-version-id {bundle_version_id} --status published")
+            console.print(f"  Publish now:   fluxloop bundles update --bundle-version-id {bundle_version_id} --status published")
             console.print(f"  Or delete:     fluxloop bundles delete --bundle-version-id {bundle_version_id}")
 
         raise typer.Exit(1)
@@ -406,7 +409,15 @@ def update(
         console.print(f"[cyan]Updating bundle {bundle_version_id}...[/cyan]")
 
         client = create_authenticated_client(api_url, use_jwt=True)
-        resp = client.put(f"/api/bundles/{bundle_version_id}", json=payload)
+        if payload.get("status") == "published":
+            if len(payload) > 1:
+                raise typer.BadParameter(
+                    "Publishing with --status published cannot be combined with other updates. "
+                    "Use a separate update command for non-status fields."
+                )
+            resp = _publish_bundle(client, bundle_version_id)
+        else:
+            resp = client.put(f"/api/bundles/{bundle_version_id}", json=payload)
 
         handle_api_error(resp, f"bundle {bundle_version_id}")
 
