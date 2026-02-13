@@ -45,6 +45,7 @@ def _resolve_scenario_dir(scenario: Optional[str], base_dir: Optional[Path] = No
 
 @app.callback(invoke_without_command=True)
 def main(
+    ctx: typer.Context,
     config_file: Path = typer.Option(
         DEFAULT_CONFIG_PATH, "--config", "-c", help="Experiment configuration file"
     ),
@@ -98,6 +99,9 @@ def main(
     
     Inputs must be pulled first with 'fluxloop sync pull --bundle-version-id <id>'.
     """
+    if ctx.invoked_subcommand is not None:
+        return
+
     scenario_root = _resolve_scenario_dir(scenario)
     project_config, _ = load_project_config(
         config_file, scenario=scenario

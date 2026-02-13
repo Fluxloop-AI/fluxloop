@@ -49,7 +49,7 @@ fluxloop evaluate --experiment-id <new_id> --wait
 
 Output:
 ```
-✅ Re-evaluation → N insights 🔗 https://alpha.app.fluxloop.ai/evaluate/experiments/exp_new?project=proj_123
+✅ Re-evaluation → N insights 🔗 https://alpha.app.fluxloop.ai/release/experiments/exp_new/evaluation?project=proj_123
 📋 Compare with the previous baseline in the web app
 💡 Run again to continue improving
 ```

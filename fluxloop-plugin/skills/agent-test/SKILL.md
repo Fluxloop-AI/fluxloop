@@ -82,7 +82,7 @@ After each action, output: `✅ [Action] → [summary] 🔗 https://...`
 | Contracts | same as Scenario URL |
 | Input Set | `https://alpha.app.fluxloop.ai/simulate/scenarios/{scenario_id}/inputs/{input_set_id}?project={project_id}` |
 | Bundle | `https://alpha.app.fluxloop.ai/simulate/scenarios/{scenario_id}/bundles/{bundle_version_id}?project={project_id}` |
-| Experiment | `https://alpha.app.fluxloop.ai/evaluate/experiments/{experiment_id}?project={project_id}` |
+| Experiment | `https://alpha.app.fluxloop.ai/release/experiments/{experiment_id}/evaluation?project={project_id}` |
 
 Examples:
 - `✅ Data → 3 files uploaded to project library`
@@ -410,7 +410,7 @@ fluxloop evaluate --experiment-id <id> --wait --timeout 900 --poll-interval 5
 After evaluation completes, output:
 
 ```
-✅ Evaluation → N insights 🔗 https://alpha.app.fluxloop.ai/evaluate/experiments/exp_abc?project=proj_123
+✅ Evaluation → N insights 🔗 https://alpha.app.fluxloop.ai/release/experiments/exp_abc/evaluation?project=proj_123
 📋 Check detailed analysis in the web app:
   - Decision: gates, budgets, baseline comparison
   - Insights: findings by category (with severity)
@@ -442,7 +442,7 @@ fluxloop test --scenario <name>
 
 # [6-4] Re-evaluate → Web handoff
 fluxloop evaluate --experiment-id <new_id> --wait
-# → Output: "✅ Re-evaluation → N insights 🔗 https://alpha.app.fluxloop.ai/evaluate/experiments/exp_new?project=proj_123"
+# → Output: "✅ Re-evaluation → N insights 🔗 https://alpha.app.fluxloop.ai/release/experiments/exp_new/evaluation?project=proj_123"
 # → Guide: "📋 Compare against the previous baseline in the web app"
 ```
 
@@ -537,7 +537,7 @@ To run tests, FluxLoop needs to invoke your agent via `runner.target` in `config
 6. **Use Naming Rules** (English kebab-case for folders, any language for display names)
 7. **Output summary after each action** (`✅ Action → summary 🔗 https://...`)
 8. **Run sync pull + test separately** (Do NOT use `--pull`)
-9. **Use explicit IDs** (`--bundle-version-id`, `--scenario-id`)
+9. **Use explicit IDs** (`--bundle-version-id`, `--scenario-id`) — UUID가 잘리지 않았는지 반드시 확인 (36자 `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)
 10. **Phase 5 → Web handoff** — guide user to web for detailed analysis
 11. **Phase 6: Iteration loop** — analyze → fix (always confirm) → re-test → re-evaluate
 12. **Complex agents need wrapper** (See "Agent Wrapper Setup" + Appendix A1)
@@ -591,5 +591,5 @@ def run(input_text: str, metadata: dict = None) -> str:
 | Input Set | `✅ Input Set → inp_789 (10 inputs) 🔗 https://alpha.app.fluxloop.ai/simulate/scenarios/scn_456/inputs/inp_789?project=proj_123` |
 | QC | `✅ QC → format: 10/10, duplicates: 0, diversity: high` |
 | Bundle | `✅ Bundle → v1 (bnd_012) 🔗 https://alpha.app.fluxloop.ai/simulate/scenarios/scn_456/bundles/bnd_012?project=proj_123` |
-| Test | `✅ Test → exp_abc (10 runs) 🔗 https://alpha.app.fluxloop.ai/evaluate/experiments/exp_abc?project=proj_123` |
-| Eval | `✅ Evaluation → 3 insights 🔗 https://alpha.app.fluxloop.ai/evaluate/experiments/exp_abc?project=proj_123` |
+| Test | `✅ Test → exp_abc (10 runs) 🔗 https://alpha.app.fluxloop.ai/release/experiments/exp_abc/evaluation?project=proj_123` |
+| Eval | `✅ Evaluation → 3 insights 🔗 https://alpha.app.fluxloop.ai/release/experiments/exp_abc/evaluation?project=proj_123` |
