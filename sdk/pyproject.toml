@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fluxloop"
-version = "0.1.7"
+version = "0.1.8"
 description = "FluxLoop SDK for agent instrumentation and tracing"
 authors = [
     {name = "FluxLoop Team", email = "team@fluxloop.dev"}

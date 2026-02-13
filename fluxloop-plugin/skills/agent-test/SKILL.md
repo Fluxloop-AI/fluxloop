@@ -351,15 +351,15 @@ fluxloop test --scenario <name>
 
 #### 실행
 
-```bash
-# OpenAI (기본)
+```
+# OpenAI (기본)  — 반드시 ! prefix 를 붙여 실행
 ! fluxloop test --scenario <name> --multi-turn --max-turns 5
 
-# Anthropic
+# Anthropic  — 반드시 ! prefix 를 붙여 실행
 ! fluxloop test --scenario <name> --multi-turn --supervisor-provider anthropic
 ```
 
-> ⚠️ 멀티턴은 `!` prefix 필수
+> ⚠️ 멀티턴 테스트는 반드시 명령어 앞에 느낌표(!) prefix를 붙여야 합니다
 
 ### View Results
 ```bash
@@ -520,7 +520,7 @@ To run tests, FluxLoop needs to invoke your agent via `runner.target` in `config
 10. **Phase 5 → Web handoff** — guide user to web for detailed analysis
 11. **Phase 6: Iteration loop** — analyze → fix (always confirm) → re-test → re-evaluate
 12. **Complex agents need wrapper** (See "Agent Wrapper Setup" + Appendix A1)
-13. **Multi-turn: ask settings + use `!` prefix** (`! fluxloop test --multi-turn`)
+13. **Multi-turn: ask settings + use 느낌표(!) prefix** (! fluxloop test --multi-turn)
 
 ---
 

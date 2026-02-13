@@ -85,6 +85,21 @@ Options:
 After running the script, open the folder in VSCode and use `FluxLoop: Show Environment Info`
 or `FluxLoop: Run Doctor` to confirm the environment.
 
+## Full Reset Script
+
+To remove FluxLoop-only local state (`.fluxloop*`, `~/.fluxloop`), remove
+project deps via `uv remove` (when `pyproject.toml` exists), and uninstall
+`fluxloop-cli` / `fluxloop` from pipx/uv tool/pip:
+
+```bash
+bash reset_fluxloop_env.sh --dry-run
+bash reset_fluxloop_env.sh --yes
+```
+
+Options:
+
+- `--project-root PATH` - clean a specific project root
+
 ## Runner Integration Patterns
 
 Configure how FluxLoop calls your code in `configs/simulation.yaml`:
@@ -113,4 +128,3 @@ To package the CLI:
 ```
 ./build.sh
 ```
-
