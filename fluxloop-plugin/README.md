@@ -75,7 +75,7 @@ The skill activates when you mention:
 ## 📋 Requirements
 
 - **FluxLoop Account**: <a href="https://alpha.app.fluxloop.ai" target="_blank">alpha.app.fluxloop.ai</a>
-- **Python 3.8+**
+- **Python 3.11+**
 
 > 💡 **The skill installs FluxLoop CLI for you!** Just say "set up fluxloop" and everything gets configured automatically.
 

@@ -9,7 +9,7 @@ First-time installation and configuration guide.
 
 ## Prerequisites
 
-- Python 3.8+
+- Python 3.11+
 - uv (recommended) or pip
 
 ## Installation
