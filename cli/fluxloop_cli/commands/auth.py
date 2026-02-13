@@ -16,6 +16,7 @@ from rich.panel import Panel
 from rich.spinner import Spinner
 from rich.live import Live
 
+from ..api_utils import resolve_api_url
 from ..auth_manager import (
     start_device_code_flow,
     poll_device_code,
@@ -35,17 +36,6 @@ app = typer.Typer(help="Manage FluxLoop authentication")
 console = Console()
 
 
-def _resolve_api_url(override: Optional[str]) -> str:
-    """Resolve API URL from override or environment variables."""
-    url = (
-        override
-        or os.getenv("FLUXLOOP_API_URL")
-        or os.getenv("FLUXLOOP_SYNC_URL")
-        or "https://api.fluxloop.ai"
-    )
-    return url.rstrip("/")
-
-
 def _is_agent_environment() -> bool:
     """Detect if running in an agent/headless environment."""
     # Check common agent environment indicators
@@ -62,6 +52,9 @@ def _is_agent_environment() -> bool:
 def login(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
+    ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
     ),
     force: bool = typer.Option(
         False, "--force", "-f", help="Force re-login even if already logged in"
@@ -87,7 +80,7 @@ def login(
     unless --force is specified. This makes the command idempotent and
     safe to call from automated scripts or AI agents.
     """
-    api_url = _resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     # Check if already logged in (idempotent behavior)
     if not force:
@@ -290,7 +283,7 @@ def status():
     If token is expired or about to expire, automatically attempts to refresh.
     Only suggests re-login if refresh fails.
     """
-    api_url = _resolve_api_url(None)
+    api_url = resolve_api_url()
     token = load_auth_token()
 
     if not token:

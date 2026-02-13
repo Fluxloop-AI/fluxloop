@@ -191,8 +191,7 @@ def env(
         loaded_paths = []
 
     env_vars = [
-        ("FLUXLOOP_SYNC_URL", "Sync API base URL", "https://api.fluxloop.ai"),
-        ("FLUXLOOP_API_KEY", "API key for authentication", None),
+        ("FLUXLOOP_API_URL", "API base URL override (optional, project.json is primary)", None),
         ("FLUXLOOP_SYNC_API_KEY", "Sync API key for uploads", None),
         ("FLUXLOOP_ENABLED", "Enable/disable tracing", "true"),
         ("FLUXLOOP_DEBUG", "Enable debug mode", "false"),
@@ -327,13 +326,12 @@ def set_llm(
 @app.command()
 def set_sync_key(
     api_key: str = typer.Argument(..., help="Sync API key"),
-    api_url: Optional[str] = typer.Option(None, "--url", help="Sync API base URL"),
     overwrite_env: bool = typer.Option(False, "--overwrite-env", help="Overwrite existing key in .env"),
     env_file: Path = typer.Option(Path(".env"), "--env-file", help="Path to environment file"),
     project: Optional[str] = typer.Option(None, "--project", help="Project name under the FluxLoop root"),
     root: Path = typer.Option(Path(DEFAULT_ROOT_DIR_NAME), "--root", help="FluxLoop root directory"),
 ):
-    """Save Sync API credentials to .env."""
+    """Save Sync API key to .env."""
 
     env_path = resolve_env_path(env_file, project, root)
     env_contents: Dict[str, str] = {}
@@ -351,12 +349,9 @@ def set_sync_key(
     else:
         env_contents["FLUXLOOP_SYNC_API_KEY"] = api_key
 
-    if api_url:
-        env_contents["FLUXLOOP_SYNC_URL"] = api_url
-
     env_lines = [f"{key}={value}" for key, value in env_contents.items()]
     env_path.write_text("\n".join(env_lines) + "\n")
-    console.print(f"[green]✓[/green] Saved sync credentials to {env_path}")
+    console.print(f"[green]✓[/green] Saved sync API key to {env_path}")
 
 
 @app.command()

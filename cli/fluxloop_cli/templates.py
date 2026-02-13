@@ -336,9 +336,8 @@ def create_env_file() -> str:
     return dedent(
         """
         # FluxLoop Configuration
-        FLUXLOOP_SYNC_URL=https://api.fluxloop.ai
+        # API URL is managed via .fluxloop/project.json (set by 'fluxloop projects select')
         FLUXLOOP_SYNC_API_KEY=your-api-key-here
-        # Legacy alias (still supported): FLUXLOOP_API_KEY
         FLUXLOOP_ENABLED=true
         FLUXLOOP_DEBUG=false
         FLUXLOOP_SAMPLE_RATE=1.0

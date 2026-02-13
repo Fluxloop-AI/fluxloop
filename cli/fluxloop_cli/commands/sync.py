@@ -16,6 +16,7 @@ import typer
 import yaml
 from rich.console import Console
 
+from ..api_utils import resolve_api_url
 from ..config_loader import load_experiment_config
 from ..constants import DEFAULT_CONFIG_PATH, FLUXLOOP_DIR_NAME, SCENARIOS_DIR_NAME
 from ..context_manager import get_current_web_project_id, get_current_scenario
@@ -98,15 +99,6 @@ def _load_env(scenario: Optional[str], base_dir: Optional[Path] = None) -> None:
     load_env_chain(source_dir, refresh_config=False)
 
 
-def _resolve_api_url(override: Optional[str]) -> str:
-    url = (
-        override
-        or os.getenv("FLUXLOOP_SYNC_URL")
-        or "https://api.fluxloop.ai"
-    )
-    return url.rstrip("/")
-
-
 def _resolve_api_key(override: Optional[str]) -> str:
     key = (
         override
@@ -165,7 +157,7 @@ def precreate_runs(
     Precreate runs via /api/sync/upload so streaming can reference existing runs.
     """
     _load_env(scenario, base_dir)
-    api_url = _resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url)
     api_key = _resolve_api_key(api_key)
     scenario_root = _resolve_scenario_dir(scenario, base_dir)
     sync_state = _read_sync_state(scenario_root)
@@ -229,7 +221,7 @@ def stream_turn(
     Stream a single turn to the sync API (best-effort).
     """
     try:
-        api_url = _resolve_api_url(api_url)
+        api_url = resolve_api_url(api_url)
         api_key = _resolve_api_key(api_key)
         run_id = turn.get("run_id")
         turn_id = turn.get("turn_id")
@@ -543,7 +535,7 @@ def pull(
         console.print(f"[dim]Using scenario: {scenario}[/dim]")
     
     _load_env(scenario)
-    api_url = _resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url)
     api_key = _resolve_api_key(api_key)
 
     if not project_id:
@@ -661,7 +653,7 @@ def upload(
         console.print(f"[dim]Using scenario: {scenario}[/dim]")
     
     _load_env(scenario)
-    api_url = _resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url)
     api_key = _resolve_api_key(api_key)
 
     scenario_root = _resolve_scenario_dir(scenario)

@@ -40,7 +40,7 @@ class WebProjectConnection:
     """
     project_id: str
     project_name: str
-    api_url: str = "https://api.fluxloop.ai"
+    api_url: str = ""
     connected_at: Optional[str] = None
     
     def to_dict(self) -> dict:
@@ -56,7 +56,7 @@ class WebProjectConnection:
         return cls(
             project_id=data["project_id"],
             project_name=data["project_name"],
-            api_url=data.get("api_url", "https://api.fluxloop.ai"),
+            api_url=data.get("api_url", ""),
             connected_at=data.get("connected_at"),
         )
 
@@ -336,7 +336,7 @@ def save_project_connection(connection: WebProjectConnection, base_dir: Optional
 def select_web_project(
     project_id: str, 
     project_name: str, 
-    api_url: str = "https://api.fluxloop.ai",
+    api_url: str = "",
     base_dir: Optional[Path] = None
 ) -> WebProjectConnection:
     """Select a Web Project for this workspace."""

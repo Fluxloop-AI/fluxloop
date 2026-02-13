@@ -20,18 +20,41 @@ from rich.console import Console
 console = Console()
 
 
-def resolve_api_url(override: Optional[str]) -> str:
+PRODUCTION_API_URL = "https://api.fluxloop.ai"
+STAGING_API_URL = "https://staging.api.fluxloop.ai"
+
+
+def _read_project_json_api_url() -> Optional[str]:
+    """Read api_url from .fluxloop/project.json if it exists."""
+    try:
+        from .context_manager import load_project_connection
+
+        conn = load_project_connection()
+        if conn and conn.api_url:
+            return conn.api_url
+    except Exception:
+        pass
+    return None
+
+
+def resolve_api_url(
+    override: Optional[str] = None,
+    *,
+    staging: bool = False,
+) -> str:
     """
-    Resolve API URL from override or environment variables.
+    Resolve API URL with a single, unified priority chain.
 
     Priority:
-    1. Override parameter
-    2. FLUXLOOP_API_URL
-    3. FLUXLOOP_SYNC_URL
-    4. Default: https://api.fluxloop.ai
+    1. ``override`` parameter (--api-url)
+    2. FLUXLOOP_API_URL environment variable
+    3. .fluxloop/project.json ``api_url``
+    4. ``--staging`` flag → staging URL
+    5. Hardcoded production URL (final fallback)
 
     Args:
-        override: Optional URL override.
+        override: Optional URL override (--api-url).
+        staging: When True, use staging URL as fallback instead of production.
 
     Returns:
         Resolved API URL (trailing slash removed).
@@ -39,8 +62,8 @@ def resolve_api_url(override: Optional[str]) -> str:
     url = (
         override
         or os.getenv("FLUXLOOP_API_URL")
-        or os.getenv("FLUXLOOP_SYNC_URL")
-        or "https://api.fluxloop.ai"
+        or _read_project_json_api_url()
+        or (STAGING_API_URL if staging else PRODUCTION_API_URL)
     )
     return url.rstrip("/")
 

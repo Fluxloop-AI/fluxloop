@@ -120,6 +120,9 @@ def create_project(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
     select: bool = typer.Option(
         True, "--select/--no-select", help="Automatically select the created project"
     ),
@@ -127,7 +130,7 @@ def create_project(
     """
     Create a new Web Project.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
     
     try:
         client = create_authenticated_client(api_url, use_jwt=True)
@@ -165,6 +168,9 @@ def select_project(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     Select a Web Project for this workspace.
@@ -176,7 +182,7 @@ def select_project(
     Use this to connect your local workspace to a Web Project before
     creating scenarios with 'fluxloop init scenario'.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
     
     try:
         # Verify project exists by fetching it

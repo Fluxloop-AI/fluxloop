@@ -125,6 +125,11 @@ fluxloop --version
 # 1. Login (for agents: prints code then polls)
 fluxloop auth login --no-wait && fluxloop auth login --resume
 
+# Staging: 사용자가 "staging"을 언급하면 --staging 플래그 추가
+# fluxloop auth login --staging --no-wait && fluxloop auth login --resume
+# fluxloop projects select <id> --staging
+# fluxloop projects create --name "my-agent" --staging
+
 # 2. Select or create project
 fluxloop projects list
 fluxloop projects select <project_id>
@@ -460,8 +465,8 @@ To run tests, FluxLoop needs to invoke your agent via `runner.target` in `config
 | Command | Description |
 |---------|-------------|
 | `fluxloop context show` | Check current state |
-| `fluxloop auth login` | Login |
-| `fluxloop projects select <id>` | Select project |
+| `fluxloop auth login` | Login (add `--staging` for staging) |
+| `fluxloop projects select <id>` | Select project (add `--staging` for staging) |
 | `fluxloop init scenario <name>` | Create local scenario folder |
 | `fluxloop scenarios create --name X --goal "..."` | Create web scenario |
 | `fluxloop scenarios select <id>` | Select scenario (auto-detects local folder) |
