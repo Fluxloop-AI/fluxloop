@@ -39,6 +39,9 @@ def publish(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     Create and publish a bundle (combined operation).
@@ -47,7 +50,7 @@ def publish(
     1. Creates a bundle with status 'draft'
     2. Updates status to 'published'
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     # Use context if no project_id specified
     if not project_id:
@@ -153,11 +156,14 @@ def create(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     Create a new bundle (draft status).
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     # Use context if no project_id specified
     if not project_id:
@@ -223,11 +229,14 @@ def list_bundles(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     List all bundles.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     # Use context if no project_id specified
     if not project_id:
@@ -298,11 +307,14 @@ def show(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     Show bundle details.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     try:
         client = create_authenticated_client(api_url, use_jwt=True)
@@ -367,11 +379,14 @@ def update(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     Update bundle fields.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     # Build payload
     payload: Dict[str, Any] = {}

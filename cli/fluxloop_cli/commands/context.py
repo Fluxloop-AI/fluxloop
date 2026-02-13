@@ -41,13 +41,16 @@ def refine(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     Refine intent and extract constraints using AI.
     
     Uses current project from context if --project-id is not specified.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     # Use context if no project_id specified
     if not project_id:

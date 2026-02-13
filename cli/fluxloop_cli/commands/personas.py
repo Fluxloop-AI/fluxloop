@@ -35,13 +35,16 @@ def suggest(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     Get AI-suggested personas for a scenario.
     
     Uses current project from context if --project-id is not specified.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     # Use context if no project_id specified
     if not project_id:
@@ -150,11 +153,14 @@ def list_personas(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     List all personas.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     try:
         client = create_authenticated_client(api_url, use_jwt=True)
@@ -220,11 +226,14 @@ def create(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     Create a custom persona.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     # Build payload
     payload: Dict[str, Any] = {"name": name}

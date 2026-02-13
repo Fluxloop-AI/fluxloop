@@ -57,6 +57,9 @@ def main(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     Trigger server-side evaluation for an experiment.
@@ -64,7 +67,7 @@ def main(
     Uses the current logged-in user (JWT). If no config is provided, the server
     will auto-select or use scenario defaults.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     if not project_id:
         project_id = get_current_web_project_id()

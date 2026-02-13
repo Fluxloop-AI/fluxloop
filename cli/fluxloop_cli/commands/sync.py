@@ -520,6 +520,9 @@ def pull(
     ),
     scenario: Optional[str] = typer.Option(None, "--scenario", help="Scenario name (defaults to current context)"),
     api_url: Optional[str] = typer.Option(None, "--api-url", help="Sync API base URL"),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
     api_key: Optional[str] = typer.Option(None, "--api-key", help="Sync API key"),
     quiet: bool = typer.Option(False, "--quiet", help="Minimal output"),
 ):
@@ -535,7 +538,7 @@ def pull(
         console.print(f"[dim]Using scenario: {scenario}[/dim]")
     
     _load_env(scenario)
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
     api_key = _resolve_api_key(api_key)
 
     if not project_id:
@@ -636,6 +639,9 @@ def upload(
     ),
     scenario: Optional[str] = typer.Option(None, "--scenario", help="Scenario name (defaults to current context)"),
     api_url: Optional[str] = typer.Option(None, "--api-url", help="Sync API base URL"),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
     api_key: Optional[str] = typer.Option(None, "--api-key", help="Sync API key"),
     bundle_version_id: Optional[str] = typer.Option(
         None, "--bundle-version-id", help="Bundle version ID"
@@ -653,7 +659,7 @@ def upload(
         console.print(f"[dim]Using scenario: {scenario}[/dim]")
     
     _load_env(scenario)
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
     api_key = _resolve_api_key(api_key)
 
     scenario_root = _resolve_scenario_dir(scenario)

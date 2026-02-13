@@ -108,6 +108,9 @@ def push(
         "--api-url",
         help="FluxLoop API base URL",
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Minimal output"),
 ):
     """
@@ -139,7 +142,7 @@ def push(
         raise typer.Exit(1)
 
     # Resolve project
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
     if not project_id:
         project_id = get_current_web_project_id()
         if not project_id:
@@ -293,13 +296,16 @@ def list_data(
         "--api-url",
         help="FluxLoop API base URL",
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     List all data in the project library.
 
     Shows both KNOWLEDGE (documents) and DATASET entries with their processing status.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     if not project_id:
         project_id = get_current_web_project_id()
@@ -390,11 +396,14 @@ def show(
         "--api-url",
         help="FluxLoop API base URL",
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     Show details of a specific data record.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     if not project_id:
         project_id = get_current_web_project_id()
@@ -498,6 +507,9 @@ def bind(
         "--api-url",
         help="FluxLoop API base URL",
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     Bind project data to a scenario.
@@ -505,7 +517,7 @@ def bind(
     Creates an association between data in the project library and a scenario,
     allowing the scenario to use this data for testing.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     if not scenario_id:
         scenario_id = get_current_scenario_id()
@@ -558,11 +570,14 @@ def unbind(
         "--api-url",
         help="FluxLoop API base URL",
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     Remove a data binding from a scenario.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     if not scenario_id:
         scenario_id = get_current_scenario_id()
@@ -607,6 +622,9 @@ def reprocess(
         "--api-url",
         help="FluxLoop API base URL",
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     Reprocess data with a different category or to fix processing errors.
@@ -615,7 +633,7 @@ def reprocess(
     - Initial processing failed
     - You want to change the data category (document ↔ dataset)
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     if not project_id:
         project_id = get_current_web_project_id()

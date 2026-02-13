@@ -85,6 +85,9 @@ def synthesize(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     Synthesize test inputs using Web API.
@@ -92,7 +95,7 @@ def synthesize(
     Uses current project/scenario from context if not specified.
     """
     effective_timeout = timeout_seconds or _get_default_timeout()
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
     
     # Use context if no project_id specified
     if not project_id:
@@ -275,11 +278,14 @@ def refine(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     Refine existing test inputs.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
     effective_timeout = timeout_seconds or _get_default_timeout()
 
     # Build payload
@@ -361,11 +367,14 @@ def qc(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     Run quality checks on test inputs.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
     effective_timeout = timeout_seconds or _get_default_timeout()
 
     # Build payload
@@ -456,11 +465,14 @@ def list_inputs(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     List all input sets.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     # Use context if no project_id specified
     if not project_id:
@@ -525,11 +537,14 @@ def show(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     Show input set details with samples.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     try:
         client = create_authenticated_client(api_url, use_jwt=True)

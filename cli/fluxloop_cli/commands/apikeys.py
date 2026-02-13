@@ -109,13 +109,16 @@ def create_api_key(
     project: Optional[str] = typer.Option(None, "--project", help="Project name (legacy)"),
     root: Path = typer.Option(Path(DEFAULT_ROOT_DIR_NAME), "--root", help="Root dir"),
     api_url: Optional[str] = typer.Option(None, "--api-url", help="API base URL"),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """Create an API Key for sync operations (pull/upload).
     
     Saves to .fluxloop/.env (workspace level) by default.
     API keys are project-scoped and shared by all scenarios.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
     
     # Priority: --env-file > workspace .fluxloop/.env > legacy resolution
     if env_file:

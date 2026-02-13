@@ -45,13 +45,16 @@ def refine(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     Refine scenario goal and constraints using AI.
     
     Uses current project from context if --project-id is not specified.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     # Use context if no project_id specified
     if not project_id:
@@ -136,6 +139,9 @@ def create(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
     select: bool = typer.Option(
         True, "--select/--no-select", help="Automatically select the created scenario"
     ),
@@ -163,7 +169,7 @@ def create(
             --constraint "Response time under 30 seconds" \\
             --assumption "User has no SQL knowledge"
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
     
     # Use context if no project_id specified
     if not project_id:
@@ -252,11 +258,14 @@ def generate(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     Generate scenario using Alignment Agent from user intent.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     # Build payload
     payload: Dict[str, Any] = {}
@@ -312,13 +321,16 @@ def list_scenarios(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     List all scenarios for a project.
     
     Uses current project from context if --project-id is not specified.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
     
     # Use context if no project_id specified
     if not project_id:
@@ -397,6 +409,9 @@ def select(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     Select a scenario as the current working scenario.
@@ -404,7 +419,7 @@ def select(
     Use --local-path to specify which local folder to link.
     If not specified, tries to find existing folders automatically.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     try:
         # Fetch scenario details to get the name
@@ -452,11 +467,14 @@ def show(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     Show scenario details.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     try:
         client = create_authenticated_client(api_url, use_jwt=True)
@@ -506,11 +524,14 @@ def update(
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
+    staging: bool = typer.Option(
+        False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
+    ),
 ):
     """
     Update scenario fields.
     """
-    api_url = resolve_api_url(api_url)
+    api_url = resolve_api_url(api_url, staging=staging)
 
     # Load payload from file
     payload = load_payload_file(file)

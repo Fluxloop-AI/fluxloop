@@ -125,7 +125,8 @@ fluxloop --version
 # 1. Login (for agents: prints code then polls)
 fluxloop auth login --no-wait && fluxloop auth login --resume
 
-# Staging: 사용자가 "staging"을 언급하면 --staging 플래그 추가
+# Staging: 사용자가 "staging"을 언급하면 --staging 플래그를 우선 사용
+# (커스텀 도메인이 필요한 경우가 아니면 --api-url 사용하지 않음)
 # fluxloop auth login --staging --no-wait && fluxloop auth login --resume
 # fluxloop projects select <id> --staging
 # fluxloop projects create --name "my-agent" --staging

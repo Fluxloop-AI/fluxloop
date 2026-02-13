@@ -24,7 +24,8 @@ Compare prompt versions by running the same bundle multiple times and analyzing 
 Requires a FluxLoop scenario to exist (agent-test Phase 1~2 completed).
 If no scenario exists, guide: `"먼저 시나리오 셋업이 필요합니다. 'test my agent'로 시작하세요."`
 
-> **Staging:** 사용자가 "staging"을 언급하면 setup 단계에서 `--staging` 플래그를 추가합니다.
+> **Staging:** 사용자가 "staging"을 언급하면 setup 단계에서 `--staging` 플래그를 우선 사용합니다.
+> (커스텀 도메인이 필요한 경우가 아니면 `--api-url` 사용하지 않음)
 > `fluxloop auth login --staging`, `fluxloop projects select <id> --staging`
 
 ---
