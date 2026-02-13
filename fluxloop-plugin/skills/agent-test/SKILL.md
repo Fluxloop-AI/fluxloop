@@ -139,6 +139,15 @@ fluxloop projects create --name "my-agent"
 fluxloop intent refine --intent "..."
 ```
 
+### Dependency Safety Guardrails (must follow)
+
+Short rules:
+- Install `fluxloop-cli` only (not `fluxloop`).
+- Before install/upgrade, run `python --version` and `uv pip index versions fluxloop-cli`.
+- If version is not published, report available versions and stop (no guessed ranges).
+- If Python requirement is higher than current interpreter, stop and offer two choices: upgrade Python or pin compatible version.
+- On failure, explain root cause in one line (name/version/python mismatch).
+
 ### Naming Rules (for create commands)
 
 | Field | Language | Format |

@@ -14,6 +14,8 @@ First-time installation and configuration guide.
 
 ## Installation
 
+> Important: install `fluxloop-cli` for command-line usage. Do not install `fluxloop` unless you explicitly need the SDK.
+
 ### Option 1: uv (Recommended)
 
 ```bash
@@ -104,6 +106,16 @@ fluxloop auth login
 ```bash
 fluxloop projects list
 fluxloop projects select <id>
+```
+
+### "No solution found when resolving dependencies for fluxloop"
+
+You likely tried to install `fluxloop` (SDK) instead of `fluxloop-cli` (CLI), or your Python version does not match the package requirement.
+
+```bash
+python --version
+uv pip index versions fluxloop-cli
+uv add fluxloop-cli
 ```
 
 ## Next Steps
