@@ -14,6 +14,7 @@ from rich.table import Table
 
 from ..http_client import create_authenticated_client, post_with_retry
 from ..api_utils import handle_api_error, resolve_api_url
+from ..language import normalize_language_token
 from ..context_manager import (
     select_web_project,
     load_project_connection,
@@ -120,6 +121,10 @@ def create_project(
     workspace_id: Optional[str] = typer.Option(
         None, "--workspace-id", help="Workspace ID (required if multiple)"
     ),
+    language: Optional[str] = typer.Option(
+        None, "--language", "-l",
+        help="Default language code for this project (e.g., ko, en, ja)",
+    ),
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
@@ -134,14 +139,18 @@ def create_project(
     Create a new Web Project.
     """
     api_url = resolve_api_url(api_url, staging=staging)
-    
+
     try:
         client = create_authenticated_client(api_url, use_jwt=True)
-        
+
         resolved_workspace_id = _resolve_workspace_id(client, workspace_id)
         payload = {"name": name, "workspace_id": resolved_workspace_id}
         if description:
             payload["description"] = description
+
+        normalized_lang = normalize_language_token(language)
+        if normalized_lang:
+            payload["settings"] = {"default_language": normalized_lang}
         
         console.print(f"[cyan]Creating project '{name}'...[/cyan]")
         

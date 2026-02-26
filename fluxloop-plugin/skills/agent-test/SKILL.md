@@ -129,13 +129,15 @@ fluxloop auth login --no-wait && fluxloop auth login --resume
 # (avoid --api-url unless a custom domain is required)
 # fluxloop auth login --staging --no-wait && fluxloop auth login --resume
 # fluxloop projects select <id> --staging
-# fluxloop projects create --name "my-agent" --staging
+# fluxloop projects create --name "my-agent" --language <code> --staging
 
 # 2. Select or create project
 fluxloop projects list
 fluxloop projects select <project_id>
-# OR
-fluxloop projects create --name "my-agent"
+# OR create new — ask language once (default: en)
+fluxloop projects create --name "my-agent" --language <code>
+# Supported codes: en, ko, ja, zh, etc.
+# This sets the project default language for all scenarios.
 fluxloop intent refine --intent "..."
 ```
 
@@ -165,6 +167,17 @@ Short rules:
 📝 Name: 1) Order Bot  2) Support Bot  3) Food Agent
 Select number or type custom:
 ```
+
+### Language Selection (for project create)
+
+When creating a new project, ask the user for the default language **once**:
+
+```
+🌐 Language: 1) en (English)  2) ko (Korean)  3) ja (Japanese)  4) other
+Select number or type language code (default: en):
+```
+
+Pass the selected code to `--language <code>`. This sets the default for all scenarios in the project. Individual scenarios can override later via `--language` on `scenarios create`.
 
 > **Important**: Install fluxloop-cli in your workspace's environment so simulations run with the same dependencies as your agent.
 > For detailed setup instructions, run `/fluxloop:setup`

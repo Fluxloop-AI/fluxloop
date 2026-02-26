@@ -14,6 +14,7 @@ from rich.console import Console
 from ..api_utils import handle_api_error, resolve_api_url
 from ..context_manager import get_current_web_project_id
 from ..http_client import create_authenticated_client, post_with_retry
+from ..progress import SpinnerStatus
 
 
 app = typer.Typer(help="Trigger evaluation for an experiment (server-side).")
@@ -103,35 +104,33 @@ def main(
         console.print("[red]✗[/red] Missing evaluation_id in response.")
         raise typer.Exit(1)
 
-    console.print("[dim]Waiting for evaluation job to complete...[/dim]")
     start = time.monotonic()
     warned = False
     last_status = None
 
-    while True:
-        if time.monotonic() - start > timeout:
-            console.print("[red]✗[/red] Timed out waiting for evaluation job.")
-            raise typer.Exit(1)
+    with SpinnerStatus("Waiting for evaluation job...", console=console) as spinner:
+        while True:
+            if time.monotonic() - start > timeout:
+                console.print("[red]✗[/red] Timed out waiting for evaluation job.")
+                raise typer.Exit(1)
 
-        resp = client.get(
-            f"/api/experiments/{experiment_id}/evaluations",
-            params={"project_id": project_id},
-        )
-        handle_api_error(resp, "evaluation jobs")
-        jobs = resp.json()
-        job = next((j for j in jobs if j.get("id") == evaluation_id), None)
+            resp = client.get(
+                f"/api/experiments/{experiment_id}/evaluations",
+                params={"project_id": project_id},
+            )
+            handle_api_error(resp, "evaluation jobs")
+            jobs = resp.json()
+            job = next((j for j in jobs if j.get("id") == evaluation_id), None)
 
-        if not job:
-            if last_status != "missing":
-                console.print("[yellow]⚠[/yellow] Evaluation job not visible yet. Retrying...")
-                last_status = "missing"
-            time.sleep(poll_interval)
-            continue
+            if not job:
+                spinner.update("Evaluation job not visible yet. Retrying...")
+                time.sleep(poll_interval)
+                continue
 
-        status = job.get("status") or "queued"
-        progress = job.get("progress") or {}
-        if status != last_status:
-            status_line = f"  status: {status}"
+            status = job.get("status") or "queued"
+            progress = job.get("progress") or {}
+
+            status_line = status
             total = progress.get("total")
             completed = progress.get("completed")
             failed = progress.get("failed")
@@ -140,25 +139,23 @@ def main(
                 if failed:
                     status_line += f", failed {failed}"
                 status_line += ")"
-            console.print(status_line)
+
+            spinner.update(status_line)
             last_status = status
 
-        if status in ("completed", "partial", "failed", "cancelled"):
-            break
+            if status in ("completed", "partial", "failed", "cancelled"):
+                break
 
-        if status == "queued" and not warned:
-            created_at = _parse_iso_datetime(job.get("created_at"))
-            locked_at = _parse_iso_datetime(job.get("locked_at"))
-            if created_at and not locked_at:
-                age_seconds = (datetime.now(timezone.utc) - created_at).total_seconds()
-                if age_seconds > 30:
-                    console.print(
-                        "[yellow]⚠[/yellow] Evaluation job still queued. "
-                        "Worker may not be running or backlog is high."
-                    )
-                    warned = True
+            if status == "queued" and not warned:
+                created_at = _parse_iso_datetime(job.get("created_at"))
+                locked_at = _parse_iso_datetime(job.get("locked_at"))
+                if created_at and not locked_at:
+                    age_seconds = (datetime.now(timezone.utc) - created_at).total_seconds()
+                    if age_seconds > 30:
+                        spinner.update("queued — Worker may not be running or backlog is high")
+                        warned = True
 
-        time.sleep(poll_interval)
+            time.sleep(poll_interval)
 
     if status in ("completed", "partial"):
         insights_resp = client.get(

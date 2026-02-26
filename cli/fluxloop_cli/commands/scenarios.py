@@ -17,6 +17,7 @@ from ..api_utils import (
     save_cache_file,
 )
 from ..http_client import create_authenticated_client, post_with_retry
+from ..language import normalize_language_token, DEFAULT_LANGUAGE
 from ..constants import FLUXLOOP_DIR_NAME, SCENARIOS_DIR_NAME
 from ..context_manager import (
     get_current_project_id,
@@ -109,6 +110,20 @@ def refine(
         raise typer.Exit(1)
 
 
+def _fetch_project_default_language(api_url: str, project_id: str) -> str:
+    """Fetch project's default_language from API, falling back to DEFAULT_LANGUAGE."""
+    try:
+        client = create_authenticated_client(api_url, use_jwt=True)
+        resp = client.get(f"/api/projects/{project_id}")
+        if resp.status_code == 200:
+            settings = resp.json().get("settings") or {}
+            token = normalize_language_token(settings.get("default_language"))
+            return token or DEFAULT_LANGUAGE
+    except Exception:
+        pass
+    return DEFAULT_LANGUAGE
+
+
 @app.command()
 def create(
     name: str = typer.Option(..., "--name", help="Scenario name"),
@@ -129,6 +144,10 @@ def create(
     ),
     success_criteria: Optional[List[str]] = typer.Option(
         None, "--success-criteria", help="Success criteria (can be specified multiple times)"
+    ),
+    language: Optional[str] = typer.Option(
+        None, "--language",
+        help="Language code for scenario (e.g., ko, en, ja). Defaults to project setting.",
     ),
     config_file: Optional[Path] = typer.Option(
         None, "--config-file", help="Path to config file for snapshot (overrides inline options)"
@@ -215,6 +234,24 @@ def create(
     if file:
         file_data = load_payload_file(file)
         payload.update(file_data)
+
+    # Language resolution runs AFTER --file merge so the final
+    # config_snapshot and project_id are authoritative.
+    # Priority: config/file language > --language > project default > "en"
+    final_snapshot: Dict[str, Any] = payload.get("config_snapshot") or {}
+    existing_lang = normalize_language_token(final_snapshot.get("language"))
+    if existing_lang:
+        final_snapshot["language"] = existing_lang
+    else:
+        explicit_lang = normalize_language_token(language)
+        if explicit_lang:
+            final_snapshot["language"] = explicit_lang
+        else:
+            final_project_id = payload.get("project_id", project_id)
+            final_snapshot["language"] = _fetch_project_default_language(
+                api_url, final_project_id
+            )
+    payload["config_snapshot"] = final_snapshot
 
     try:
         console.print("[cyan]Creating scenario...[/cyan]")

@@ -22,6 +22,7 @@ from ..api_utils import (
 )
 from ..http_client import create_authenticated_client, post_with_retry
 from ..context_manager import get_current_scenario_id, get_current_web_project_id
+from ..progress import spin_while
 
 app = typer.Typer(help="Synthesize and manage test inputs via Web API")
 console = Console()
@@ -173,12 +174,15 @@ def synthesize(
         payload.update(file_data)
 
     try:
-        console.print("[cyan]Synthesizing test inputs...[/cyan]")
         if effective_timeout > 60:
             console.print(f"[dim]Timeout: {effective_timeout:.0f}s[/dim]")
 
         client = create_authenticated_client(api_url, use_jwt=True, timeout=effective_timeout)
-        resp = post_with_retry(client, "/api/inputs/synthesize", payload=payload)
+        resp = spin_while(
+            "Synthesizing test inputs...",
+            lambda: post_with_retry(client, "/api/inputs/synthesize", payload=payload),
+            console=console,
+        )
 
         handle_api_error(resp, f"input synthesis for scenario {scenario_id}")
 
@@ -301,12 +305,15 @@ def refine(
         payload.update(file_data)
 
     try:
-        console.print("[cyan]Refining test inputs...[/cyan]")
         if effective_timeout > 60:
             console.print(f"[dim]Timeout: {effective_timeout:.0f}s[/dim]")
 
         client = create_authenticated_client(api_url, use_jwt=True, timeout=effective_timeout)
-        resp = post_with_retry(client, "/api/inputs/refine", payload=payload)
+        resp = spin_while(
+            "Refining test inputs...",
+            lambda: post_with_retry(client, "/api/inputs/refine", payload=payload),
+            console=console,
+        )
 
         handle_api_error(resp, f"input refinement for set {input_set_id}")
 
@@ -403,12 +410,15 @@ def qc(
             payload["project_id"] = project_id
 
     try:
-        console.print("[cyan]Running quality checks...[/cyan]")
         if effective_timeout > 60:
             console.print(f"[dim]Timeout: {effective_timeout:.0f}s[/dim]")
 
         client = create_authenticated_client(api_url, use_jwt=True, timeout=effective_timeout)
-        resp = post_with_retry(client, "/api/inputs/qc", payload=payload)
+        resp = spin_while(
+            "Running quality checks...",
+            lambda: post_with_retry(client, "/api/inputs/qc", payload=payload),
+            console=console,
+        )
 
         handle_api_error(resp, f"quality check for input set {input_set_id}")
 

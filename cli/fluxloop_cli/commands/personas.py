@@ -2,9 +2,11 @@
 Persona management commands for FluxLoop CLI.
 """
 
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import httpx
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -17,9 +19,24 @@ from ..api_utils import (
 )
 from ..http_client import create_authenticated_client, post_with_retry
 from ..context_manager import get_current_web_project_id
+from ..language import normalize_language_token
+from ..progress import spin_while
 
 app = typer.Typer(help="Manage test personas")
 console = Console()
+
+DEFAULT_PERSONAS_SUGGEST_TIMEOUT = 120.0
+
+
+def _get_default_suggest_timeout() -> float:
+    """Get suggest timeout from environment variable or use built-in default."""
+    env_timeout = os.getenv("FLUXLOOP_PERSONAS_SUGGEST_TIMEOUT")
+    if env_timeout:
+        try:
+            return float(env_timeout)
+        except ValueError:
+            pass
+    return DEFAULT_PERSONAS_SUGGEST_TIMEOUT
 
 
 @app.command()
@@ -29,6 +46,11 @@ def suggest(
         None, "--project-id", help="Project ID (defaults to current context)"
     ),
     count: int = typer.Option(3, "--count", help="Number of personas to suggest"),
+    language: Optional[str] = typer.Option(
+        None,
+        "--language",
+        help="Preferred language code for casting (e.g., ko, en, ja)",
+    ),
     file: Optional[Path] = typer.Option(
         None, "--file", "-f", help="Load payload from YAML or JSON file"
     ),
@@ -38,6 +60,14 @@ def suggest(
     staging: bool = typer.Option(
         False, "--staging", help="Use staging API (staging.api.fluxloop.ai)"
     ),
+    timeout_seconds: Optional[float] = typer.Option(
+        None,
+        "--timeout",
+        help=(
+            "Request timeout in seconds "
+            "(default: 120, or FLUXLOOP_PERSONAS_SUGGEST_TIMEOUT env)"
+        ),
+    ),
 ):
     """
     Get AI-suggested personas for a scenario.
@@ -45,6 +75,7 @@ def suggest(
     Uses current project from context if --project-id is not specified.
     """
     api_url = resolve_api_url(api_url, staging=staging)
+    effective_timeout = timeout_seconds or _get_default_suggest_timeout()
 
     # Use context if no project_id specified
     if not project_id:
@@ -60,6 +91,9 @@ def suggest(
         "scenario_id": scenario_id,
         "count": count,
     }
+    normalized_language = normalize_language_token(language)
+    if normalized_language:
+        payload["language"] = normalized_language
 
     # Override with file if provided
     if file:
@@ -67,10 +101,19 @@ def suggest(
         payload.update(file_data)
 
     try:
-        console.print("[cyan]Suggesting personas...[/cyan]")
+        if effective_timeout > 60:
+            console.print(f"[dim]Timeout: {effective_timeout:.0f}s[/dim]")
 
-        client = create_authenticated_client(api_url, use_jwt=True)
-        resp = post_with_retry(client, "/api/personas/suggest", payload=payload)
+        client = create_authenticated_client(
+            api_url,
+            use_jwt=True,
+            timeout=effective_timeout,
+        )
+        resp = spin_while(
+            "Suggesting personas...",
+            lambda: post_with_retry(client, "/api/personas/suggest", payload=payload),
+            console=console,
+        )
 
         handle_api_error(resp, f"persona suggestions for scenario {scenario_id}")
 
@@ -140,6 +183,15 @@ def suggest(
                 f"\n[dim]Use in synthesis: fluxloop inputs synthesize --scenario-id {scenario_id} --persona-ids {ids}[/dim]"
             )
 
+    except httpx.TimeoutException:
+        console.print(
+            f"[red]✗[/red] Persona suggestion timed out after {effective_timeout:.0f}s.\n"
+            "  Options:\n"
+            "    --timeout 180                        (increase timeout)\n"
+            "    FLUXLOOP_PERSONAS_SUGGEST_TIMEOUT=180  (env default)",
+            style="bold red",
+        )
+        raise typer.Exit(1)
     except Exception as e:
         console.print(f"[red]✗[/red] Suggestion failed: {e}", style="bold red")
         raise typer.Exit(1)
