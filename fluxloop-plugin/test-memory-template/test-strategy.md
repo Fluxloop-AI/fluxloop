@@ -25,4 +25,4 @@
 
 - **Turn mode**: single-turn / multi-turn (max {N} turns)
 - **Input count**: {N}
-- **Wrapper path**: {.fluxloop/scenarios/<name>/wrapper.*}
+- **Wrapper path**: {.fluxloop/scenarios/<name>/agents/<wrapper_file>.py}

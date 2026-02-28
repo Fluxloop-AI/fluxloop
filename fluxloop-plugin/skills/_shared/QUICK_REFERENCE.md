@@ -34,7 +34,8 @@ project_root/
         .env              # Optional scenario-local env
         agents/           # Agent wrapper files
         configs/          # simulation.yaml, evaluation.yaml
-        contracts/        # Scenario contracts (YAML)
+        .state/
+          contracts/      # Scenario contracts (YAML)
         inputs/           # Generated test inputs
         experiments/      # Test results
     test-memory/            # Shared context across skills

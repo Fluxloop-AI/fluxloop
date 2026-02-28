@@ -59,7 +59,7 @@ test → evaluate → (코드 수정) → test → evaluate → ...
 ## 📋 요구사항
 
 - **FluxLoop 계정**: [alpha.app.fluxloop.ai](https://alpha.app.fluxloop.ai)
-- **Node.js 18+**: FluxLoop CLI 실행에 필요
+- **Python 3.11+**: FluxLoop CLI 실행에 필요
 
 > 💡 **setup 스킬이 FluxLoop CLI를 자동으로 설치합니다!** "fluxloop 세팅해줘"라고 말하면 모든 설정이 자동으로 완료됩니다.
 
@@ -126,7 +126,8 @@ your-project/
 │   │   └── my-test/
 │   │       ├── agents/       # 에이전트 래퍼
 │   │       ├── configs/      # 설정 파일
-│   │       ├── contracts/    # 시나리오 계약 (YAML)
+│   │       ├── .state/
+│   │       │   └── contracts/  # 시나리오 계약 (YAML)
 │   │       ├── inputs/       # 테스트 입력 데이터
 │   │       └── experiments/  # 테스트 결과
 │   └── test-memory/          # 스킬 간 공유 컨텍스트 (자동 생성)
@@ -135,8 +136,10 @@ your-project/
 │       ├── prompt-versions.md # 프롬프트 버전 이력
 │       ├── results-log.md    # 테스트 결과 로그
 │       └── learnings.md      # 인사이트 및 개선사항
-└── fluxloop.yaml             # 프로젝트 설정
 ```
+
+> 기본 설정 파일은 `configs/scenario.yaml`, `configs/input.yaml`, `configs/simulation.yaml`입니다.
+> `setting.yaml`과 `fluxloop.yaml`은 레거시 호환으로 계속 지원됩니다.
 
 ## 🔗 링크
 

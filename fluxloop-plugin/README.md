@@ -59,7 +59,7 @@ test → evaluate → (fix code) → test → evaluate → ...
 ## 📋 Requirements
 
 - **FluxLoop Account**: [alpha.app.fluxloop.ai](https://alpha.app.fluxloop.ai)
-- **Node.js 18+**: Required for FluxLoop CLI
+- **Python 3.11+**: Required for FluxLoop CLI
 
 > 💡 **The setup skill installs FluxLoop CLI for you!** Just say "set up fluxloop" and everything gets configured automatically.
 
@@ -126,7 +126,8 @@ your-project/
 │   │   └── my-test/
 │   │       ├── agents/       # Agent wrappers
 │   │       ├── configs/      # Configuration files
-│   │       ├── contracts/    # Scenario contracts (YAML)
+│   │       ├── .state/
+│   │       │   └── contracts/  # Scenario contracts (YAML)
 │   │       ├── inputs/       # Test inputs
 │   │       └── experiments/  # Test results
 │   └── test-memory/          # Shared context across skills (auto-generated)
@@ -135,8 +136,10 @@ your-project/
 │       ├── prompt-versions.md # Prompt version history
 │       ├── results-log.md    # Test results log
 │       └── learnings.md      # Insights & improvements
-└── fluxloop.yaml             # Project settings
 ```
+
+> Default config files are `configs/scenario.yaml`, `configs/input.yaml`, and `configs/simulation.yaml`.
+> `setting.yaml` and `fluxloop.yaml` remain supported for legacy compatibility.
 
 ## 🔗 Links
 

@@ -122,6 +122,7 @@ Suggest 3 scenarios based on `agent-profile.md`:
 ```bash
 fluxloop scenarios create --name "Order Accuracy Test" --goal "..."
 fluxloop scenarios refine --scenario-id <id>
+fluxloop sync pull --scenario <name>
 ```
 
 After `scenarios refine` — **must include scenario URL in output**:
