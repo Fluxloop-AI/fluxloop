@@ -1,3 +1,5 @@
+**English** | [한국어](README.ko.md)
+
 # FluxLoop Claude Code Plugin
 
 A Claude Code plugin for automated AI agent testing and evaluation.
@@ -20,140 +22,81 @@ That's it! Now just talk to Claude naturally.
 
 ---
 
-## ⭐ The Core: Agent Test Skill
+## ⭐ Skills — Test Your Agent with Natural Language
 
-**The skill is everything.** Just speak naturally and FluxLoop handles the rest.
+FluxLoop consists of 6 specialized skills. Just speak naturally and the right skill activates automatically.
 
-### How to Use
+### 🗣️ Usage (Natural Language)
 
-Simply ask Claude:
-
-```
-"test my agent"
-"generate test data for my chatbot"
-"run a simulation"
-"evaluate my agent's responses"
-"set up fluxloop for this project"
-```
-
-The **`fluxloop-agent-test`** skill automatically:
-- ✅ Checks your current setup state
-- ✅ Guides you through installation if needed
-- ✅ Generates test data and personas
-- ✅ Runs simulations against your agent
-- ✅ Uploads results to FluxLoop Web
-- ✅ Triggers evaluations and surfaces insights/recommendations (even for partial runs)
-- ✅ Shows you what to fix
+| Intent | Example | Activated Skill |
+|--------|---------|-----------------|
+| Initial setup | "set up fluxloop" | setup |
+| Scan / update agent | "scan my agent" | context |
+| Create scenario | "create a scenario" | scenario |
+| Run test | "run the test" | test |
+| Evaluate / improve | "evaluate my results" | evaluate |
+| Compare prompts | "compare prompts" | prompt-compare |
 
 ### Skill Workflow
 
+**First time setup (once per project):**
 ```
-You: "test my agent"
-      ↓
-[Skill activates automatically]
-      ↓
-1. Check context (fluxloop context show)
-2. Summarize current state to you
-3. Present options (no auto-execution)
-4. Execute after your confirmation
-5. Show results and next steps
+setup → context → scenario → test → evaluate
 ```
+
+**Daily loop (most of your time here):**
+```
+test → evaluate → (fix code) → test → evaluate → ...
+```
+
+> setup and context are automatically skipped when already complete.
+> You can jump straight to "run the test" — FluxLoop detects the current state and handles the rest.
 
 **No commands to memorize. No manual steps. Just ask.**
-
-### Auto-Activation Keywords
-
-The skill activates when you mention:
-- `test`, `testing`, `test my agent`
-- `simulation`, `run simulation`
-- `generate test data`, `synthesize inputs`
-- `evaluate`, `agent evaluation`
-- `scenario`, `create scenario`
 
 ---
 
 ## 📋 Requirements
 
-- **FluxLoop Account**: <a href="https://alpha.app.fluxloop.ai" target="_blank">alpha.app.fluxloop.ai</a>
-- **Python 3.11+**
+- **FluxLoop Account**: [alpha.app.fluxloop.ai](https://alpha.app.fluxloop.ai)
+- **Node.js 18+**: Required for FluxLoop CLI
 
-> 💡 **The skill installs FluxLoop CLI for you!** Just say "set up fluxloop" and everything gets configured automatically.
+> 💡 **The setup skill installs FluxLoop CLI for you!** Just say "set up fluxloop" and everything gets configured automatically.
 
 ---
 
 ## 🔧 Example Conversation
 
 ```
-You: "I want to test my customer support agent"
+You: "set up fluxloop"
+Claude: [setup skill] Installing CLI, authenticating, and configuring the project...
+      ✅ Setup complete → Say "scan my agent" to proceed.
 
-Claude: I'll help you test your agent with FluxLoop.
+You: "scan my agent"
+Claude: [context skill] Scanning codebase and generating agent profile...
+      ✅ Profile saved → Say "create a scenario" to proceed.
 
-Let me check your current setup...
-
-📊 Current State:
-- FluxLoop CLI: ✓ Installed
-- Authentication: ✓ Logged in  
-- Project: customer-support (proj_abc123)
-- Scenario: support-bot
-- Bundle: v3 (50 inputs, 2 days ago)
-
-Would you like to:
-1. Run tests with existing bundle (v3)
-2. Generate new test data
-3. Create a new scenario
-
-You: "1"
-
-Claude: Running tests with bundle v3...
-[Executes: fluxloop sync pull + fluxloop test]
-
-✓ Test completed! 47/50 passed (94%)
-⚠️ 3 warnings detected
-
-View detailed results: https://alpha.app.fluxloop.ai/...
-
-Would you like me to analyze the failures?
+You: "run the test"
+Claude: [test skill] Checking scenario and data, then running tests...
+      ✅ Test completed! 47/50 passed (94%)
+      → Say "evaluate my results" to analyze.
 ```
 
 ---
 
-## 🧪 Server-Side Evaluation (Optional)
+## 🧪 Evaluation
 
-Trigger evaluations for an experiment and optionally wait for completion:
+FluxLoop provides server-side evaluation powered by AI insights.
 
-```bash
-fluxloop evaluate --experiment-id <experiment_id>
-fluxloop evaluate --experiment-id <experiment_id> --wait
-fluxloop evaluate --experiment-id <experiment_id> --wait --timeout 900 --poll-interval 5
-```
+Simply say **"evaluate my results"** — the **evaluate** skill handles everything automatically.
 
-- `--wait` polls until the job is `completed` or `partial` and prints the latest insight/recommendation headlines.
-- Insights/recommendations are generated when at least one run completes, even if the job ends as `partial`.
-- If a job stays `queued` for >30s without a worker lock, you'll see a warning about worker/backlog.
-
----
-
-## 📁 Slash Commands (Manual Alternative)
-
-For when you need direct control:
-
-| Command | Description |
-|---------|-------------|
-| `/fluxloop:setup` | First-time setup guide |
-| `/fluxloop:test` | Run tests |
-| `/fluxloop:smoke` | Quick smoke test |
-| `/fluxloop:pull` | Pull test data from Web |
-| `/fluxloop:evaluate` | Trigger server-side evaluation (supports `--wait`) |
-| `/fluxloop:improve` | Analyze results → fix agent → re-test → re-evaluate |
-| `/fluxloop:status` | Check current status |
-
-> 💡 **Recommendation**: Use natural language with the skill instead. It's smarter and handles edge cases automatically.
+For direct CLI usage, see the [documentation](https://docs.fluxloop.ai).
 
 ---
 
 ## 🪝 Hooks (Optional)
 
-Auto-run smoke tests after file edits:
+Auto-run smoke tests after file edits (only when FluxLoop is set up):
 
 ```json
 {
@@ -161,11 +104,15 @@ Auto-run smoke tests after file edits:
     {
       "type": "PostToolUse",
       "matcher": "Write|Edit",
-      "command": "fluxloop test --smoke --quiet"
+      "command": "if [ -f .fluxloop/context.json ] && command -v fluxloop >/dev/null 2>&1; then fluxloop test --smoke --quiet; fi"
     }
   ]
 }
 ```
+
+> The hook only runs when FluxLoop CLI is installed and the project is initialized.
+
+---
 
 ## 📁 Project Structure
 
@@ -175,13 +122,19 @@ your-project/
 │   ├── project.json          # Project connection info
 │   ├── context.json          # Current scenario pointer
 │   ├── .env                  # API key
-│   └── scenarios/
-│       └── my-test/
-│           ├── agents/       # Agent wrappers
-│           ├── configs/      # Configuration files
-│           ├── contracts/    # Scenario contracts (YAML)
-│           ├── inputs/       # Test inputs
-│           └── experiments/  # Test results
+│   ├── scenarios/
+│   │   └── my-test/
+│   │       ├── agents/       # Agent wrappers
+│   │       ├── configs/      # Configuration files
+│   │       ├── contracts/    # Scenario contracts (YAML)
+│   │       ├── inputs/       # Test inputs
+│   │       └── experiments/  # Test results
+│   └── test-memory/          # Shared context across skills (auto-generated)
+│       ├── agent-profile.md  # Agent profile & metadata
+│       ├── test-strategy.md  # Test objectives & criteria
+│       ├── prompt-versions.md # Prompt version history
+│       ├── results-log.md    # Test results log
+│       └── learnings.md      # Insights & improvements
 └── fluxloop.yaml             # Project settings
 ```
 

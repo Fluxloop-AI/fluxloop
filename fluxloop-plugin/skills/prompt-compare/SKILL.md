@@ -2,31 +2,46 @@
 name: fluxloop-prompt-compare
 description: |
   Use for prompt version comparison and stability testing.
-  Keywords: compare, comparison, prompt version, stability, A/B test, diff
+  Frequency: when tuning prompts. Optional — use when A/B comparison is needed.
+  Keywords: compare, comparison, prompt version, stability, A/B test, diff, stability test
 
   Auto-activates on requests like:
   - "compare prompts", "compare prompt versions"
   - "stability test", "run a stability test"
   - "v3 vs v4", "version comparison"
   - "run same input multiple times", "run the same input multiple times"
+  - "compare prompts", "run comparison test"
 ---
 
 # FluxLoop Prompt Compare Skill
 
-Compare prompt versions by running the same bundle multiple times and analyzing output differences.
-
-## Core Principle
-
 **Same Bundle × N Repeats × Version Diff** — freeze inputs via bundle, automate repeated runs, compare outputs.
+
+## Output Format
+
+> 📎 All user-facing output must follow: read skills/_shared/OUTPUT_FORMAT.md
+
+## Context Protocol
+
+1. `fluxloop context show` → confirm project + scenario exist
+2. `.fluxloop/test-memory/` check:
+   - Exists → load `agent-profile.md`, `results-log.md`
+   - Missing → proceed (first run)
+3. Dual Write:
+   - Server: `fluxloop test --scenario` (×2 runs)
+   - Local: save to `prompt-versions.md`, append to `results-log.md`
+4. On completion: verify `prompt-versions.md` and `results-log.md` are current
+
+> 📎 Full protocol: read skills/_shared/CONTEXT_PROTOCOL.md
+> 📎 Stale detection: read skills/_shared/CONTEXT_COLLECTION.md
 
 ## Prerequisite
 
-Requires a FluxLoop scenario to exist (agent-test Phase 1~2 completed).
-If no scenario exists, guide: `"Scenario setup is required first. Start with 'test my agent'."`
-
-> **Staging:** if the user mentions "staging", prefer the `--staging` flag during setup.
-> (avoid `--api-url` unless a custom domain is required)
-> `fluxloop auth login --staging`, `fluxloop projects select <id> --staging`
+Run `fluxloop context show` first:
+- ✅ Project + scenario exist → proceed to Phase 0
+- ❌ No project → Prerequisite Resolution: suggest inline setup execution
+- ❌ No scenario → Prerequisite Resolution: suggest inline scenario execution
+- Minimum: at least 1 bundle is needed (or will be created in Phase 1)
 
 ---
 
@@ -39,35 +54,26 @@ ls .fluxloop/scenarios
 
 | State | Action |
 |-------|--------|
-| No scenario | → Guide to agent-test skill |
+| No scenario | → "Start with 'create a scenario' (scenario skill)" |
 | Scenario exists | → Phase 1 |
+
+**test-memory read**:
+1. Read `.fluxloop/test-memory/agent-profile.md`:
+   - Extract `git_commit` from metadata → compare with `git rev-parse --short HEAD`
+   - Stale → "The profile appears outdated. Would you like to update it?" → Yes → follow `_shared/CONTEXT_COLLECTION.md` inline
+2. Read `.fluxloop/test-memory/results-log.md`:
+   - If previous test records exist → display as baseline reference
+
+> 📎 Stale detection: read skills/_shared/CONTEXT_COLLECTION.md
 
 ---
 
 ## Phase 1: Bundle Selection
 
-Inputs come from Web — generated or selected from existing bundles. Follow the same decision tree as agent-test Phase 3.
+> 📎 Bundle selection: read skills/_shared/BUNDLE_DECISION.md (simplified flow for comparison tests)
 
 ```bash
 fluxloop bundles list --scenario-id <scenario_id>
-```
-
-```
-bundles list
-  │
-  ├─ Bundles exist → Show list (version, input count, date), ask "Which bundle?"
-  │   └─ User selects → Use it
-  │
-  └─ No bundle → inputs list --scenario-id <id>
-      │
-      ├─ Input sets exist → Show list, ask "Which one?"
-      │   └─ User selects → Publish as bundle
-      │       fluxloop bundles publish --scenario-id <id> --input-set-id <id>
-      │
-      └─ No inputs → Generate small set for comparison
-          fluxloop personas suggest --scenario-id <id>
-          fluxloop inputs synthesize --scenario-id <id> --total-count 2
-          fluxloop bundles publish --scenario-id <id> --input-set-id <id>
 ```
 
 > **Tip:** For comparison tests, 1-3 inputs are usually enough. When creating new data, use `--total-count 2` for a small bundle.
@@ -88,6 +94,8 @@ fluxloop sync pull --bundle-version-id <bundle_version_id>
 
 Ask the user:
 
+> 💡 **Repeats**: Measures response consistency (stability) by running the same input multiple times. More repeats produce statistically more reliable comparisons.
+
 ```
 1. Number of repeats? (default: 5)
 2. Multi-turn? (default: single-turn) → if yes, also confirm max turns
@@ -101,6 +109,8 @@ iterations: 5  # user-specified count
 ```
 
 > Read existing simulation.yaml first. Only modify `iterations`, preserve all other fields.
+
+> 📎 Staging environment: read skills/_shared/STAGING.md
 
 ---
 
@@ -125,11 +135,15 @@ fluxloop test --scenario <name>
 ```
 
 > ⚠️ Multi-turn requires `!` prefix.
+> 📎 Multi-turn rules: read skills/_shared/MULTITURN.md
 
 After completion:
-1. Note the experiment directory: `.fluxloop/scenarios/<name>/experiments/exp_<timestamp>/`
-2. Record as `experiment_A` with the user's version label + git diff
-3. Output: `✅ Baseline → exp_<timestamp> (label: "v3", N runs)`
+1. Note experiment directory as `experiment_A`
+2. **(Server)**: results stored automatically on server
+3. **(Local)**: record Version A in `.fluxloop/test-memory/prompt-versions.md`:
+   - Git ref, experiment ID, key characteristics
+4. Output — **must include 🔗 link**:
+   `✅ Baseline → exp_<timestamp> (label: "v3", N runs) 🔗 https://alpha.app.fluxloop.ai/release/experiments/{experiment_id}/evaluation?project={project_id}`
 
 ---
 
@@ -152,7 +166,7 @@ Wait for user confirmation. Do NOT modify any code yourself.
 git diff HEAD
 ```
 
-This shows exactly what the user changed between v3 and v4. Record for the comparison report.
+This shows exactly what the user changed between versions. Record for the comparison report.
 
 ### 5-2. Run
 
@@ -167,10 +181,16 @@ fluxloop test --scenario <name>
 ```
 
 > No need to `sync pull` again. The bundle is already pulled locally.
+> 📎 Multi-turn rules: read skills/_shared/MULTITURN.md
 
 After completion:
-1. Note the experiment directory as `experiment_B`
-2. Output: `✅ Variant → exp_<timestamp> (label: "v4", N runs)`
+1. Note experiment directory as `experiment_B`
+2. **(Server)**: results stored automatically on server
+3. **(Local)**: add Version B to `.fluxloop/test-memory/prompt-versions.md`:
+   - Git ref, experiment ID, changes summary, git diff summary
+4. **(Local)**: append comparison entry to `.fluxloop/test-memory/results-log.md`
+5. Output — **must include 🔗 link**:
+   `✅ Variant → exp_<timestamp> (label: "v4", N runs) 🔗 https://alpha.app.fluxloop.ai/release/experiments/{experiment_id}/evaluation?project={project_id}`
 
 ---
 
@@ -185,19 +205,7 @@ Read both experiment trace files:
 .fluxloop/scenarios/<name>/experiments/<exp_B>/trace_summary.jsonl
 ```
 
-Each line in trace_summary.jsonl:
-```json
-{
-  "trace_id": "uuid",
-  "iteration": 0,
-  "persona": "persona_name",
-  "input": "user input text",
-  "output": "agent response",
-  "duration_ms": 1234.5,
-  "success": true,
-  "token_usage": {"input_tokens": 10, "output_tokens": 20}
-}
-```
+> 📎 Trace structure & analysis formats: read this file's references/analysis-metrics.md
 
 ### 6-2. Analyze & Report
 
@@ -206,50 +214,23 @@ Generate a comparison report with these sections:
 #### 1) Prompt Changes (git diff summary)
 
 ```markdown
-## Prompt Changes (v3 -> v4)
+## Prompt Changes ({version_A} -> {version_B})
 - [Summary of changed files and key edits]
 ```
 
 #### 2) Per-Input Analysis
 
-Group traces by `input` field, then compare across versions:
-
-```markdown
-## Input: "I want to analyze data"
-
-### v3 (5 runs)
-| # | Output Summary | Tokens | Time (ms) |
-|---|----------|------|----------|
-| 1 | [One-line key summary] | 150 | 1200 |
-| 2 | ... | ... | ... |
-
-### v4 (5 runs)
-| # | Output Summary | Tokens | Time (ms) |
-|---|----------|------|----------|
-| 1 | [One-line key summary] | 130 | 1100 |
-| 2 | ... | ... | ... |
-
-### Comparison
-- **Within-version consistency**: v3 high / v4 medium
-- **Cross-version difference**: clear / minimal
-- **Key change**: [What changed concretely]
-```
+Group traces by `input` field, then compare across versions. Use the Per-Input Analysis Format from `references/analysis-metrics.md`.
 
 #### 3) Overall Summary
 
-```markdown
-## Overall Comparison
+Use the Overall Summary Table Format from `references/analysis-metrics.md`.
 
-| Metric | v3 | v4 |
-|------|----|----|
-| Avg token count | 150 | 130 |
-| Avg response time (ms) | 1200 | 1100 |
-| Success rate | 100% | 100% |
-| Within-version consistency | High | Medium |
-
-### Conclusion
-[Summarize impact by linking prompt changes to result changes]
-```
+After analysis:
+- **(Local)**: update comparison result in `.fluxloop/test-memory/results-log.md`:
+  - Winner (A/B/tie), key difference summary
+- **(Local)**: update `.fluxloop/test-memory/prompt-versions.md`:
+  - Comparison Result section: winner, key difference
 
 ---
 
@@ -258,10 +239,11 @@ Group traces by `input` field, then compare across versions:
 ```
 Choose one:
 1. Additional comparison — update prompt again and compare (-> Phase 4)
-2. View Web details — provide the raw experiment URL (`https://...`) so it can be copied directly
-3. Server evaluation — run detailed analysis with `fluxloop evaluate`
-4. Done
+2. Server evaluation — run detailed analysis with `fluxloop evaluate`
+3. Done
 ```
+
+> 💡 Experiment URLs are already provided in Phase 3 and 5 outputs. Refer to those outputs to review them.
 
 If "Additional comparison": loop back to Phase 4 (same bundle reused).
 If "Server evaluation":
@@ -271,20 +253,37 @@ fluxloop evaluate --experiment-id <exp_B_id> --wait
 
 ---
 
+## Error Handling
+
+| Error | Response |
+|-------|----------|
+| No scenario exists | "Start with 'create a scenario' (scenario skill)" |
+| No bundle available | Guide to bundle creation (Phase 1) |
+| Baseline run fails | Check wrapper setup, API key, network. Resolve before continuing. |
+| Variant run fails | Same check. Do NOT compare partial results. |
+| trace_summary.jsonl missing | Check experiment directory. Re-run if needed. |
+| Different input counts between A/B | This should not happen (same bundle). Verify bundle_version_id. |
+| Profile stale (git_commit mismatch) | Offer inline update via _shared/CONTEXT_COLLECTION.md |
+
+## Next Steps
+
+Comparison done. Available next actions:
+- Loop back to Phase 4 for another comparison (same bundle reused)
+- Deep analysis with server evaluation (evaluate skill)
+- Run a full test with winning prompt (test skill)
+- Refine scenario based on learnings (scenario skill)
+
 ## Quick Reference
 
-| Phase | Action | Command |
-|-------|--------|---------|
-| 0 | Context check | `fluxloop context show` |
-| 1 | Bundle selection | `fluxloop bundles list`, `sync pull --bundle-version-id <id>` |
-| 2 | Set iterations + multi-turn | Edit `simulation.yaml`, decide multi-turn |
-| 3 | Baseline run | `git diff HEAD` + `fluxloop test --scenario <name>` |
-| 4 | User modifies prompt | (wait) |
-| 5 | Variant run | `git diff HEAD` + `fluxloop test --scenario <name>` |
-| 6 | Compare | Read trace_summary.jsonl × 2 + git diffs, generate report |
-| 7 | Next action | Loop / evaluate / done |
+| Step | Command |
+|------|---------|
+| Check | `fluxloop context show` |
+| Bundle | `fluxloop bundles list --scenario-id <id>` |
+| Pull | `fluxloop sync pull --bundle-version-id <id>` |
+| Run | `fluxloop test --scenario <name>` |
+| Evaluate | `fluxloop evaluate --experiment-id <id> --wait` |
 
----
+> 📎 Full CLI reference: read skills/_shared/QUICK_REFERENCE.md
 
 ## Key Rules
 
@@ -296,4 +295,7 @@ fluxloop evaluate --experiment-id <exp_B_id> --wait
 6. **Only change `iterations` in simulation.yaml** — preserve all other config fields
 7. **Always read trace_summary.jsonl** — it has per-run details needed for comparison
 8. **Label experiments clearly** — use user-provided version labels throughout
-9. **Multi-turn uses `!` prefix** — same as agent-test skill
+9. **Multi-turn uses `!` prefix** — same as other skills
+10. **Check `agent-profile.md` for staleness before starting** — update if git_commit mismatches
+11. **Dual Write**: record versions to `prompt-versions.md` and results to `results-log.md` alongside server actions
+12. **Use templates from `test-memory-template/`** for output format
