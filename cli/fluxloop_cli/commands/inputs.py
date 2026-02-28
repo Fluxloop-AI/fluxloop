@@ -28,6 +28,11 @@ app = typer.Typer(help="Synthesize and manage test inputs via Web API")
 console = Console()
 
 DEFAULT_SYNTHESIZE_TIMEOUT = 180.0
+_DATA_CONTEXT_CONFLICT_CODES = {
+    "DATA_CONTEXT_NOT_READY",
+    "DATA_SUMMARY_MISSING",
+    "DATA_SUMMARY_STALE",
+}
 
 
 def _get_default_timeout() -> float:
@@ -39,6 +44,71 @@ def _get_default_timeout() -> float:
         except ValueError:
             pass
     return DEFAULT_SYNTHESIZE_TIMEOUT
+
+
+def _extract_data_context_conflict(resp: httpx.Response) -> Optional[Dict[str, Any]]:
+    try:
+        parsed = resp.json()
+    except Exception:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+
+    candidate = parsed.get("detail")
+    if isinstance(candidate, dict):
+        payload = candidate
+    else:
+        payload = parsed
+
+    if not isinstance(payload, dict):
+        return None
+    code = payload.get("code")
+    if not isinstance(code, str) or code not in _DATA_CONTEXT_CONFLICT_CODES:
+        return None
+    context = payload.get("context")
+    if not isinstance(context, dict):
+        context = {}
+    return {"code": code, "context": context}
+
+
+def _render_data_context_conflict(conflict: Dict[str, Any], scenario_id: str) -> None:
+    code = str(conflict.get("code") or "")
+    context = conflict.get("context")
+    context = context if isinstance(context, dict) else {}
+    recommended = context.get("recommended_action")
+    recommended_text = (
+        str(recommended).strip() if isinstance(recommended, str) and recommended.strip() else None
+    )
+
+    if code == "DATA_CONTEXT_NOT_READY":
+        total_count = int(context.get("total_count") or 0)
+        completed_count = int(context.get("completed_count") or 0)
+        pending_ids = context.get("pending_data_ids")
+        pending_count = len(pending_ids) if isinstance(pending_ids, list) else max(total_count - completed_count, 0)
+        console.print(
+            "[yellow]⚠[/yellow] Data context is not ready yet (processing still in progress).",
+            style="bold yellow",
+        )
+        console.print(f"  Completed: {completed_count}/{total_count} | Pending: {pending_count}")
+        if isinstance(pending_ids, list) and pending_ids:
+            preview = ", ".join(str(item) for item in pending_ids[:5])
+            suffix = " ..." if len(pending_ids) > 5 else ""
+            console.print(f"  Pending data IDs: {preview}{suffix}")
+    elif code == "DATA_SUMMARY_MISSING":
+        console.print(
+            "[yellow]⚠[/yellow] Data summary is missing for this scenario.",
+            style="bold yellow",
+        )
+    elif code == "DATA_SUMMARY_STALE":
+        console.print(
+            "[yellow]⚠[/yellow] Data summary is stale and must be regenerated.",
+            style="bold yellow",
+        )
+
+    if recommended_text:
+        console.print(f"  Recommended action: {recommended_text}")
+    console.print(f"  Scenario: [cyan]{scenario_id}[/cyan]")
+    console.print("  Retry command after data context is ready.")
 
 
 @app.command()
@@ -119,6 +189,7 @@ def synthesize(
         "project_id": project_id,
         "scenario_id": scenario_id,
         "dry_run": dry_run,
+        "include_data_context": True,
     }
 
     if persona_ids:
@@ -183,6 +254,12 @@ def synthesize(
             lambda: post_with_retry(client, "/api/inputs/synthesize", payload=payload),
             console=console,
         )
+
+        if resp.status_code == 409:
+            conflict = _extract_data_context_conflict(resp)
+            if conflict:
+                _render_data_context_conflict(conflict, scenario_id)
+                raise typer.Exit(1)
 
         handle_api_error(resp, f"input synthesis for scenario {scenario_id}")
 
@@ -259,6 +336,8 @@ def synthesize(
             style="bold red",
         )
         raise typer.Exit(1)
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f"[red]✗[/red] Synthesis failed: {e}", style="bold red")
         raise typer.Exit(1)
@@ -266,6 +345,9 @@ def synthesize(
 
 @app.command()
 def refine(
+    project_id: Optional[str] = typer.Option(
+        None, "--project-id", help="Project ID (defaults to current context)"
+    ),
     scenario_id: str = typer.Option(..., "--scenario-id", help="Scenario ID"),
     input_set_id: str = typer.Option(..., "--input-set-id", help="Input set ID to refine"),
     dry_run: bool = typer.Option(
@@ -292,8 +374,17 @@ def refine(
     api_url = resolve_api_url(api_url, staging=staging)
     effective_timeout = timeout_seconds or _get_default_timeout()
 
+    # Use context if no project_id specified
+    if not project_id:
+        project_id = get_current_web_project_id()
+        if not project_id:
+            console.print("[yellow]No Web Project selected.[/yellow]")
+            console.print("[dim]Select one with: fluxloop projects select <id>[/dim]")
+            raise typer.Exit(1)
+
     # Build payload
     payload: Dict[str, Any] = {
+        "project_id": project_id,
         "scenario_id": scenario_id,
         "input_set_id": input_set_id,
         "dry_run": dry_run,
@@ -314,6 +405,12 @@ def refine(
             lambda: post_with_retry(client, "/api/inputs/refine", payload=payload),
             console=console,
         )
+
+        if resp.status_code == 409:
+            conflict = _extract_data_context_conflict(resp)
+            if conflict:
+                _render_data_context_conflict(conflict, scenario_id)
+                raise typer.Exit(1)
 
         handle_api_error(resp, f"input refinement for set {input_set_id}")
 
@@ -354,6 +451,8 @@ def refine(
             style="bold red",
         )
         raise typer.Exit(1)
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f"[red]✗[/red] Refinement failed: {e}", style="bold red")
         raise typer.Exit(1)
@@ -489,6 +588,9 @@ def list_inputs(
     project_id: Optional[str] = typer.Option(
         None, "--project-id", help="Filter by project ID"
     ),
+    format: str = typer.Option(
+        "table", "--format", help="Output format (table, json)"
+    ),
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
@@ -533,6 +635,12 @@ def list_inputs(
                 console.print(
                     "[dim]Create inputs: fluxloop inputs synthesize --scenario-id <id>[/dim]"
                 )
+            return
+
+        if format == "json":
+            import json
+
+            console.print_json(json.dumps(input_sets, ensure_ascii=False, default=str))
             return
 
         # Create table

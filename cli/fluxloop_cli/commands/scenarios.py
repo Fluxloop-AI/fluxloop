@@ -355,6 +355,9 @@ def list_scenarios(
     project_id: Optional[str] = typer.Option(
         None, "--project-id", help="Filter by project ID (defaults to current context)"
     ),
+    format: str = typer.Option(
+        "table", "--format", help="Output format (table, json)"
+    ),
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
@@ -395,6 +398,12 @@ def list_scenarios(
         if not scenarios:
             console.print("[yellow]No scenarios found.[/yellow]")
             console.print("[dim]Create one with: fluxloop scenarios create --name <name>[/dim]")
+            return
+
+        if format == "json":
+            import json
+
+            console.print_json(json.dumps(scenarios, ensure_ascii=False, default=str))
             return
 
         # Create table

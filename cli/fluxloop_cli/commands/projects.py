@@ -52,6 +52,9 @@ def _resolve_workspace_id(
 
 @app.command("list")
 def list_projects(
+    format: str = typer.Option(
+        "table", "--format", help="Output format (table, json)"
+    ),
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
@@ -78,7 +81,13 @@ def list_projects(
             console.print("[yellow]No projects found.[/yellow]")
             console.print("[dim]Create one with: fluxloop projects create --name <name>[/dim]")
             return
-        
+
+        if format == "json":
+            import json
+
+            console.print_json(json.dumps(projects, ensure_ascii=False, default=str))
+            return
+
         # Get current workspace project
         workspace_project_id = get_current_web_project_id()
         

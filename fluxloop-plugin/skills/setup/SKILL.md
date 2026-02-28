@@ -94,7 +94,7 @@ These two commands form a single flow:
 List existing projects:
 
 ```bash
-fluxloop projects list
+fluxloop projects list --format json
 ```
 
 **If a project exists**: select it:
@@ -164,7 +164,7 @@ Setup complete. Available next actions:
 | State check | `fluxloop context show` |
 | Auth check | `fluxloop auth status` |
 | Login | `fluxloop auth login --no-wait && fluxloop auth login --resume` |
-| Projects | `fluxloop projects list` |
+| Projects | `fluxloop projects list --format json` |
 | Projects | `fluxloop projects select <id>` |
 | Projects | `fluxloop projects create --name X --language <code>` |
 

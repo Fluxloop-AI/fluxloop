@@ -202,6 +202,9 @@ def list_personas(
     scenario_id: Optional[str] = typer.Option(
         None, "--scenario-id", help="Filter by scenario ID"
     ),
+    format: str = typer.Option(
+        "table", "--format", help="Output format (table, json)"
+    ),
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
@@ -230,6 +233,12 @@ def list_personas(
 
         if not personas:
             console.print("[yellow]No personas found.[/yellow]")
+            return
+
+        if format == "json":
+            import json
+
+            console.print_json(json.dumps(personas, ensure_ascii=False, default=str))
             return
 
         # Create table

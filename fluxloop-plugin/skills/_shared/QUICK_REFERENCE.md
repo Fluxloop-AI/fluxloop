@@ -46,13 +46,14 @@ project_root/
       learnings.md
 ```
 
-## UUID Handling
+## ID Extraction
 
-CLI 테이블 출력은 터미널 폭에 따라 UUID가 잘릴 수 있다. **잘린 ID로 명령을 실행하면 500 에러가 발생한다.**
+ID가 필요한 list 명령은 반드시 `--format json`을 사용한다. 테이블 출력은 터미널 폭에 따라 UUID가 잘릴 수 있다.
 
-- ID를 CLI 출력에서 추출한 후 반드시 **36자 검증**: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
-- 36자 미만이면 해당 명령의 **raw 출력을 다시 확인**하거나 관련 list 명령을 재실행하여 전체 ID를 확보
-- 잘린 ID(36자 미만)로는 **절대 다음 명령을 실행하지 않는다**
+```bash
+fluxloop bundles list --scenario-id <id> --format json
+fluxloop inputs list --scenario-id <id> --format json
+```
 
 ## Setup
 
@@ -84,11 +85,11 @@ CLI 테이블 출력은 터미널 폭에 따라 UUID가 잘릴 수 있다. **잘
 |---------|-------------|
 | `fluxloop bundles list --scenario-id <id>` | List existing bundles |
 | `fluxloop personas suggest --scenario-id <id>` | Generate personas |
-| `fluxloop inputs synthesize --scenario-id <id>` | Generate inputs (`--timeout 300` for large) |
+| `fluxloop inputs synthesize --scenario-id <id>` | Generate inputs (`--timeout 300` for large, 409 data-context conflicts require retry after readiness) |
 | `fluxloop bundles publish --scenario-id <id> --input-set-id <id>` | Publish bundle |
 | `fluxloop sync pull --bundle-version-id <id>` | Download bundle (uses current scenario) |
 | `fluxloop inputs qc --scenario-id <id> --input-set-id <id>` | Input quality check (interactive only) |
-| `fluxloop inputs refine --scenario-id <id> --input-set-id <id>` | AI-based input refinement |
+| `fluxloop inputs refine --scenario-id <id> --input-set-id <id>` | AI-based input refinement (may return same 409 data-context conflicts) |
 
 ## Test
 
@@ -110,7 +111,7 @@ CLI 테이블 출력은 터미널 폭에 따라 UUID가 잘릴 수 있다. **잘
 | Phase | Action | Command |
 |-------|--------|---------|
 | 0 | Check context | `fluxloop context show` |
-| 1 | Select bundle | `fluxloop bundles list`, `sync pull --bundle-version-id <id>` |
+| 1 | Select bundle | `fluxloop bundles list --format json`, `sync pull --bundle-version-id <id>` |
 | 2 | Configure | Edit `simulation.yaml`, decide multi-turn |
 | 3 | Run baseline | `git diff HEAD` + `fluxloop test --scenario <name>` |
 | 4 | Modify prompt | (user action) |

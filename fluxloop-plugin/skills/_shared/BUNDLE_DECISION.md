@@ -5,7 +5,7 @@ Check existing data first, then offer choices to the user.
 ## Decision Flow
 
 ```
-fluxloop bundles list --scenario-id <id>
+fluxloop bundles list --scenario-id <id> --format json
   │
   ├─ Multiple bundles → show list, "Which bundle would you like to use?"
   │   └─ Selected → sync pull (2 commands)
@@ -14,7 +14,7 @@ fluxloop bundles list --scenario-id <id>
   │   ├─ Use existing → sync pull (2 commands)
   │   └─ Create new → proceed to inputs check
   │
-  └─ No bundle → fluxloop inputs list --scenario-id <id>
+  └─ No bundle → fluxloop inputs list --scenario-id <id> --format json
       │
       ├─ Multiple input sets → show list, "Which input set would you like to use?"
       │   └─ Selected → bundle publish (3 commands)
@@ -28,17 +28,14 @@ fluxloop bundles list --scenario-id <id>
              → ✅ Personas → N개 생성됨 + 이름 목록
           2. fluxloop inputs synthesize --scenario-id <id> --total-count N
              → ✅ Input Set → {id} (N개 입력) 🔗 URL + 내용 요약
+             → 409 (`DATA_CONTEXT_NOT_READY`/`DATA_SUMMARY_MISSING`/`DATA_SUMMARY_STALE`) 발생 시 CLI 안내 문구를 따른 뒤 동일 명령 재시도
           3. fluxloop bundles publish --scenario-id <id> --input-set-id <id>
              → ✅ Bundle → v1 ({id}) 🔗 URL
 ```
 
-## UUID Validation (mandatory)
+## ID Extraction
 
-CLI 테이블 출력에서 ID를 추출할 때, 터미널 폭에 의해 UUID가 잘릴 수 있다.
-
-**모든 ID를 사용하기 전에 반드시 36자(`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`) 검증:**
-- 36자 미만 → 잘린 ID. **절대 사용하지 않는다.** list 명령을 재실행하여 전체 ID 확보.
-- `inputs list`, `bundles list` 출력에서 ID가 `...`으로 끝나거나 하이픈 이후 부분이 짧으면 잘린 것이다.
+list 명령 실행 시 반드시 `--format json`을 사용하여 ID를 추출한다. 테이블 출력은 터미널 폭에 따라 UUID가 잘릴 수 있으므로, JSON 출력에서 전체 ID를 안전하게 파싱한다.
 
 ## Display Format for Multiple Resources
 
@@ -60,13 +57,14 @@ Key info to display: **version/name, tag/description, count, created date**
 prompt-compare only needs a small number of inputs, so it follows a simplified flow:
 
 ```
-bundles list → exists → select
-             → none → inputs list → exists → select and publish
+bundles list --format json → exists → select
+             → none → inputs list --format json → exists → select and publish
                                   → none → small-scale generation (각 단계 결과 출력 필수):
                                     1. fluxloop personas suggest --scenario-id <id>
                                        → ✅ Personas → N개 생성됨 + 이름 목록
                                     2. fluxloop inputs synthesize --scenario-id <id> --total-count 2
                                        → ✅ Input Set → {id} (N개 입력) 🔗 URL + 내용 요약
+                                       → 409 (`DATA_CONTEXT_NOT_READY`/`DATA_SUMMARY_MISSING`/`DATA_SUMMARY_STALE`) 발생 시 CLI 안내 문구를 따른 뒤 동일 명령 재시도
                                     3. fluxloop bundles publish --scenario-id <id> --input-set-id <id>
                                        → ✅ Bundle → v1 ({id}) 🔗 URL
 ```

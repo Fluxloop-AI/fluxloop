@@ -73,7 +73,7 @@ ls .fluxloop/scenarios
 > 📎 Bundle selection: read skills/_shared/BUNDLE_DECISION.md (simplified flow for comparison tests)
 
 ```bash
-fluxloop bundles list --scenario-id <scenario_id>
+fluxloop bundles list --scenario-id <scenario_id> --format json
 ```
 
 > **Tip:** For comparison tests, 1-3 inputs are usually enough. When creating new data, use `--total-count 2` for a small bundle.

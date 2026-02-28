@@ -71,7 +71,7 @@ Run `fluxloop context show` first:
 
 > 📎 Bundle selection decision tree: read skills/_shared/BUNDLE_DECISION.md
 
-Run `fluxloop bundles list --scenario-id <id>` and follow the decision tree:
+Run `fluxloop bundles list --scenario-id <id> --format json` and follow the decision tree:
 
 | Bundle State | Input Set State | Path |
 |--------------|----------------|------|
@@ -95,6 +95,7 @@ When showing multiple resources, include: **version/name, tag/description, count
    ```bash
    fluxloop inputs synthesize --scenario-id <id>    # --timeout 300 for large, --total-count 2 for quick
    ```
+   > If synthesis returns 409 (`DATA_CONTEXT_NOT_READY`, `DATA_SUMMARY_MISSING`, `DATA_SUMMARY_STALE`), follow the recommended action from CLI output and retry after data context is ready.
    > **Required output**: Extract `input_set_id` and input count from CLI output:
    > `✅ Input Set → {input_set_id} ({N} inputs) 🔗 https://alpha.app.fluxloop.ai/simulate/scenarios/{scenario_id}/inputs/{input_set_id}?project={project_id}`
    > + brief summary of generated inputs (1-2 lines describing what test cases were created)
@@ -185,6 +186,9 @@ Display result summary to the user.
 | `Inputs file not found` | "Run `fluxloop sync pull --bundle-version-id <id>` first" |
 | `No personas found` | "Run `fluxloop personas suggest --scenario-id <id>` first" |
 | `Synthesis timed out` | "Use `--timeout 300` or reduce `--total-count`" |
+| `DATA_CONTEXT_NOT_READY` | "Bound data preprocessing is still running. Wait for completion, then retry `fluxloop inputs synthesize --scenario-id <id>`." |
+| `DATA_SUMMARY_MISSING` | "Data summary is missing. Trigger/confirm data summary generation, then retry synthesis/refine." |
+| `DATA_SUMMARY_STALE` | "Data summary is stale. Refresh data processing/summary, then retry synthesis/refine." |
 | `ModuleNotFoundError` in test | "Check `runner.target` in simulation.yaml, ensure wrapper is in Python path" |
 | Agent returns None | "Ensure wrapper returns string, not None" |
 
@@ -199,8 +203,8 @@ Test complete. Available next actions:
 | Step | Command |
 |------|---------|
 | Check | `fluxloop context show` |
-| Bundles | `fluxloop bundles list --scenario-id <id>` |
-| Inputs | `fluxloop inputs list --scenario-id <id>` |
+| Bundles | `fluxloop bundles list --scenario-id <id> --format json` |
+| Inputs | `fluxloop inputs list --scenario-id <id> --format json` |
 | Personas | `fluxloop personas suggest --scenario-id <id>` |
 | Synthesize | `fluxloop inputs synthesize --scenario-id <id>` |
 | QC | `fluxloop inputs qc --scenario-id <id> --input-set-id <id>` |
@@ -222,7 +226,7 @@ Test complete. Available next actions:
 4. NEVER run `fluxloop test` as part of bundle selection (E-M2 fix) — always go through Pre-check first
 5. Use `sync pull` + `test` separately — NEVER use `--pull` option
 6. Multi-turn commands must start with `!` prefix
-7. Use explicit IDs (`--bundle-version-id`, `--scenario-id`) — **CLI table output may truncate UUIDs. Always validate 36 characters (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`) before use. If less than 36 characters, re-run the list command to obtain the full ID.**
+7. Use explicit IDs (`--bundle-version-id`, `--scenario-id`) — **always use `--format json` on list commands to extract full IDs safely.**
 8. Dual Write: server (test results + experiment ID) and local (`results-log.md`) at the same time
 9. Use the template from `test-memory-template/results-log.md` for output format
 10. Append to `results-log.md` (most recent at top) — do NOT overwrite

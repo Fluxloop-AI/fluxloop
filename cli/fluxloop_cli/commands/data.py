@@ -299,6 +299,9 @@ def list_data(
         "--category",
         help="Filter by category: 'document' or 'dataset'",
     ),
+    format: str = typer.Option(
+        "table", "--format", help="Output format (table, json)"
+    ),
     api_url: Optional[str] = typer.Option(
         None,
         "--api-url",
@@ -339,6 +342,12 @@ def list_data(
         if not items:
             console.print("[yellow]No data found.[/yellow]")
             console.print("[dim]Upload with: fluxloop data push <file>[/dim]")
+            return
+
+        if format == "json":
+            import json
+
+            console.print_json(json.dumps(items, ensure_ascii=False, default=str))
             return
 
         # Create table

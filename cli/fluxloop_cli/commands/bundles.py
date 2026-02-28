@@ -229,6 +229,9 @@ def list_bundles(
     project_id: Optional[str] = typer.Option(
         None, "--project-id", help="Filter by project ID"
     ),
+    format: str = typer.Option(
+        "table", "--format", help="Output format (table, json)"
+    ),
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
     ),
@@ -273,6 +276,12 @@ def list_bundles(
                 console.print(
                     "[dim]Create one: fluxloop bundles publish --scenario-id <id> --input-set-id <id>[/dim]"
                 )
+            return
+
+        if format == "json":
+            import json
+
+            console.print_json(json.dumps(bundles, ensure_ascii=False, default=str))
             return
 
         # Create table
