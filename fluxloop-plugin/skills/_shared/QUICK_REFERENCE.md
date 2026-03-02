@@ -48,7 +48,7 @@ project_root/
 
 ## ID Extraction
 
-ID가 필요한 list 명령은 반드시 `--format json`을 사용한다. 테이블 출력은 터미널 폭에 따라 UUID가 잘릴 수 있다.
+Always use `--format json` on list commands that require IDs. Table output may truncate UUIDs depending on terminal width.
 
 ```bash
 fluxloop bundles list --scenario-id <id> --format json
@@ -68,6 +68,8 @@ fluxloop inputs list --scenario-id <id> --format json
 | Command | Description |
 |---------|-------------|
 | `fluxloop data push <file>` | Upload file (`--bind` to link to scenario) |
+| `fluxloop data push <file> --usage ground-truth --scenario <id>` | Upload as Ground Truth validation data (auto-materializes) |
+| `fluxloop data bind <data_id> --role validation --scenario <id>` | Bind existing data as GT validation (auto-materializes) |
 
 ## Scenario
 
@@ -84,12 +86,27 @@ fluxloop inputs list --scenario-id <id> --format json
 | Command | Description |
 |---------|-------------|
 | `fluxloop bundles list --scenario-id <id>` | List existing bundles |
-| `fluxloop personas suggest --scenario-id <id>` | Generate personas |
+| `fluxloop personas suggest --scenario-id <id>` | Generate stories + cast personas (full mode) |
+| `fluxloop personas suggest --scenario-id <id> --stories '<json>'` | Cast-only mode — agent provides stories, server skips story generation and casts only |
 | `fluxloop inputs synthesize --scenario-id <id>` | Generate inputs (`--timeout 300` for large, 409 data-context conflicts require retry after readiness) |
 | `fluxloop bundles publish --scenario-id <id> --input-set-id <id>` | Publish bundle |
 | `fluxloop sync pull --bundle-version-id <id>` | Download bundle (uses current scenario) |
 | `fluxloop inputs qc --scenario-id <id> --input-set-id <id>` | Input quality check (interactive only) |
 | `fluxloop inputs refine --scenario-id <id> --input-set-id <id>` | AI-based input refinement (may return same 409 data-context conflicts) |
+
+## Ground Truth
+
+| Command | Description |
+|---------|-------------|
+| `fluxloop data push <file> --usage ground-truth --scenario <id>` | Upload + bind as GT validation data |
+| `fluxloop data push <file> --usage ground-truth --bind --label-column <col> --split test` | Upload GT with label column and split |
+| `fluxloop data bind <data_id> --role validation --scenario <id>` | Bind existing data as GT validation |
+| `fluxloop data bind <data_id> --role validation --split test --label-column <col>` | Bind with GT options |
+| `fluxloop data gt status --scenario <id>` | Check GT materialization status |
+| `fluxloop data gt status --scenario <id> --data-id <id>` | Check GT status for specific data |
+| `fluxloop data gt status --scenario <id> --format json` | GT status in JSON format |
+
+> 📎 For GT classification guidance (context vs ground-truth): read skills/context/SKILL.md Step 5-1
 
 ## Test
 

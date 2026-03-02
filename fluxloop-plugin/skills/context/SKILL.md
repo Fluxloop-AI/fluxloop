@@ -80,8 +80,11 @@ Structure the scan results:
 
 ### Step 3: Interactive — Additional Documents
 
-Ask: "Do you have any reference documents? (enter path / skip)"
-- Path entered → include that file in the scan
+Ask: "Do you have any reference documents or validation data? (enter path / skip)"
+- Path entered → classify using the decision tree in Step 5-1:
+  - Classified as GT but no scenario exists → "This file looks like validation data (Ground Truth). It will be uploaded as context for now. After creating a scenario, you can bind it as Ground Truth."
+  - Classified as GT with active scenario → include for GT upload in Step 5-3
+  - Classified as context → include for context upload in Step 5-2
 - skip → proceed
 
 ### Step 4: Intent Refine (Upload project context to server)
@@ -103,7 +106,54 @@ fluxloop intent refine --intent "<1-3 sentence summary of agent purpose and key 
 
 ### Step 5: Server Upload (Dual Write — Server)
 
-Upload key files:
+Upload key files to the server. Before uploading, classify each file as **Context** or **Ground Truth**.
+
+#### 5-1. Data Classification Decision Tree
+
+> 💡 **Context vs Ground Truth**: Context data is reference material that informs test generation (e.g., docs, specs, code). Ground Truth (GT) data is a structured dataset with expected answers used to validate agent output correctness after test execution.
+
+For each file the user provides, apply this decision tree **in order**:
+
+```
+File to upload
+  │
+  ├─ 1. User explicitly says "ground truth", "validation data",
+  │     "expected answers", "정답 데이터", "검증 데이터"
+  │     → ✅ Ground Truth
+  │
+  ├─ 2. User explicitly says "context", "reference", "참고 자료"
+  │     → ✅ Context
+  │
+  ├─ 3. Check file type:
+  │     │
+  │     ├─ Unstructured (md, txt, pdf, docx, html)
+  │     │   → ✅ Context (always)
+  │     │
+  │     └─ Structured (csv, json, jsonl, xlsx, tsv)
+  │         │
+  │         ├─ 4. Inspect content — does it have input+output column pairs?
+  │         │     (e.g., "question"+"answer", "input"+"expected_output",
+  │         │      "query"+"label", "prompt"+"response")
+  │         │     → YES → ✅ Ground Truth (confirm with user)
+  │         │     → NO or UNCLEAR → Step 5
+  │         │
+  │         └─ 5. Ask the user:
+  │               "이 파일은 구조화된 데이터입니다. 용도를 선택해주세요:
+  │                1) 참고 자료 (Context) — 테스트 입력 생성 시 참고용
+  │                2) 정답 데이터 (Ground Truth) — 에이전트 출력의 정확성 검증용"
+```
+
+**Key distinction**:
+
+| Aspect | Context | Ground Truth |
+|--------|---------|--------------|
+| Purpose | Informs input synthesis quality | Validates output correctness |
+| File types | Any (md, pdf, csv, etc.) | Structured only (csv, json, jsonl, xlsx) |
+| Requires scenario | No (project library) | Yes (must bind to scenario) |
+| Has labels/answers | No | Yes (input + expected output columns) |
+| Examples | README, API spec, user guide | Q&A pairs, expected outputs, scoring rubrics |
+
+#### 5-2. Context Upload (default)
 
 ```bash
 fluxloop data push README.md
@@ -113,7 +163,36 @@ fluxloop data push <agent-main-file> --bind
 - `--bind` links the file to the current scenario (use only when a scenario is selected)
 - If no scenario exists, upload to the project library without `--bind`
 
-> **Required result output**: After upload, display: `✅ Data → N files uploaded to project library`
+#### 5-3. Ground Truth Upload
+
+> ⚠️ GT upload requires an active scenario. If no scenario exists, skip GT upload and note: "Ground Truth data can be added after scenario creation (scenario skill)."
+
+```bash
+fluxloop data push <gt-file> --usage ground-truth --scenario <scenario_id> \
+  --label-column <col>
+```
+
+**GT options**:
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `--usage ground-truth` | Yes | Activates GT mode (forces DATASET category) |
+| `--scenario <id>` or `--bind` | Yes | GT must be bound to a scenario |
+| `--label-column <col>` | Recommended | Column containing expected answers |
+| `--split <train\|dev\|test>` | No | Data split |
+| `--row-filter <expr>` | No | Filter rows before materialization |
+| `--sampling-seed <N>` | No | Reproducibility seed (default: 42) |
+
+After successful GT upload, the CLI auto-materializes GT profile and contracts. Display:
+
+```
+✅ Data (GT) → {filename} uploaded + bound to scenario
+  data_id: {data_id}
+  profile_id: {profile_id}
+  gt_contract_count: {N}
+```
+
+> **Required result output**: After all uploads, display: `✅ Data → N files uploaded to project library` (+ GT summary if applicable)
 > (Data actions have no URL — see POST_ACTIONS.md)
 
 ### Step 6: Local Save (Dual Write — Local)
@@ -139,6 +218,8 @@ Show the generated profile to the user:
 | No README found | Fall back to other files (pyproject.toml, main file); create a limited profile |
 | `fluxloop intent refine` failure | Log error, proceed to next step (best-effort — does not block workflow) |
 | `fluxloop data push` failure | Check network, verify file path, confirm login status |
+| GT upload without scenario | "Ground Truth requires a scenario. Create one first (scenario skill), then upload with `--usage ground-truth`." |
+| GT materialization 409 | "Check status: `fluxloop data gt status --scenario <id>`. Retry bind after processing completes." |
 | `git rev-parse` failure (not a git repo) | Set `git_commit` to `no-git`; note that stale detection is unavailable |
 
 ## Next Steps
@@ -154,6 +235,8 @@ Profile ready. Available next action:
 | Intent | `fluxloop intent refine --intent "..."` |
 | Upload | `fluxloop data push <file>` |
 | Upload + bind | `fluxloop data push <file> --bind` |
+| Upload (GT) | `fluxloop data push <file> --usage ground-truth --scenario <id> --label-column <col>` |
+| GT status | `fluxloop data gt status --scenario <id>` |
 | Git hash | `git rev-parse --short HEAD` |
 
 > 📎 Full CLI reference: read skills/_shared/QUICK_REFERENCE.md
@@ -169,3 +252,5 @@ Profile ready. Available next action:
 7. If no git repo, set `git_commit: no-git` and note stale detection is unavailable
 8. Show profile summary and ask for confirmation before finalizing
 9. On update: overwrite the entire `agent-profile.md` (not append)
+10. Classify files before upload: unstructured → context; structured with input+output pairs → likely GT (confirm with user)
+11. GT upload requires an active scenario — defer GT files if no scenario exists

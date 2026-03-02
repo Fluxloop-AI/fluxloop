@@ -2,12 +2,14 @@
 Persona management commands for FluxLoop CLI.
 """
 
+import json
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import httpx
 import typer
+import yaml
 from rich.console import Console
 from rich.table import Table
 
@@ -39,6 +41,203 @@ def _get_default_suggest_timeout() -> float:
     return DEFAULT_PERSONAS_SUGGEST_TIMEOUT
 
 
+def _coerce_stories_payload(raw: Any, *, source: str) -> List[Dict[str, Any]]:
+    candidate = raw.get("stories") if isinstance(raw, dict) else raw
+    if not isinstance(candidate, list):
+        raise typer.BadParameter(
+            f"{source} must contain a JSON/YAML list of story objects "
+            "or an object with a 'stories' list."
+        )
+    stories = [item for item in candidate if isinstance(item, dict)]
+    if not stories:
+        raise typer.BadParameter(f"{source} does not contain any valid story object.")
+    return stories
+
+
+def _compact_text(value: Any) -> str:
+    return value.strip() if isinstance(value, str) else ""
+
+
+def _normalize_inline_story(raw_story: Dict[str, Any], *, index: int) -> Dict[str, Any]:
+    story: Dict[str, Any] = dict(raw_story)
+
+    story_id = _compact_text(story.get("id")) or f"story_{index + 1}"
+    title = _compact_text(story.get("title"))
+    narrative = _compact_text(story.get("narrative"))
+    test_focus = _compact_text(story.get("testFocus"))
+    casting_query = _compact_text(story.get("castingQuery"))
+    if not title:
+        title = narrative or test_focus or casting_query or f"Story {index + 1}"
+    if not narrative:
+        narrative = f"{title} context and expected user behavior."
+    if not test_focus:
+        test_focus = "Validate behavior and recovery flow in a realistic scenario."
+
+    profile_raw = story.get("protagonistProfile")
+    profile = profile_raw if isinstance(profile_raw, dict) else {}
+    key_traits_raw = profile.get("keyTraits")
+    key_traits = (
+        [item.strip() for item in key_traits_raw if isinstance(item, str) and item.strip()]
+        if isinstance(key_traits_raw, list)
+        else []
+    )
+    protagonist_profile = {
+        "description": _compact_text(profile.get("description"))
+        or "Representative end user in this scenario.",
+        "keyTraits": key_traits,
+        "idealType": _compact_text(profile.get("idealType")) or "general user",
+    }
+    if not casting_query:
+        casting_query = " ".join(part for part in [title, narrative, test_focus] if part).strip()
+
+    story["id"] = story_id
+    story["title"] = title
+    story["narrative"] = narrative
+    story["testFocus"] = test_focus
+    story["protagonistProfile"] = protagonist_profile
+    story["castingQuery"] = casting_query
+    return story
+
+
+def _load_stories_from_file(file_path: Path) -> List[Dict[str, Any]]:
+    if not file_path.exists():
+        raise typer.BadParameter(f"Stories file not found: {file_path}")
+
+    suffix = file_path.suffix.lower()
+    content = file_path.read_text()
+    try:
+        if suffix in {".yaml", ".yml"}:
+            parsed = yaml.safe_load(content)
+        elif suffix == ".json":
+            parsed = json.loads(content)
+        else:
+            raise typer.BadParameter(
+                f"Unsupported stories file format: {suffix}. Use .yaml, .yml, or .json"
+            )
+    except yaml.YAMLError as exc:
+        raise typer.BadParameter(f"Invalid YAML in stories file: {exc}")
+    except json.JSONDecodeError as exc:
+        raise typer.BadParameter(f"Invalid JSON in stories file: {exc}")
+
+    return _coerce_stories_payload(parsed, source=str(file_path))
+
+
+def _parse_inline_stories(raw_json: str) -> List[Dict[str, Any]]:
+    try:
+        parsed = json.loads(raw_json)
+    except json.JSONDecodeError as exc:
+        raise typer.BadParameter(f"--stories must be valid JSON: {exc}")
+
+    candidate = parsed.get("stories") if isinstance(parsed, dict) else parsed
+    if not isinstance(candidate, list):
+        raise typer.BadParameter(
+            "--stories must be a JSON list or an object with a 'stories' list."
+        )
+
+    normalized: List[Dict[str, Any]] = []
+    for idx, item in enumerate(candidate):
+        if isinstance(item, str) and item.strip():
+            normalized.append(_normalize_inline_story({"title": item.strip()}, index=idx))
+            continue
+        if isinstance(item, dict):
+            normalized.append(_normalize_inline_story(item, index=idx))
+            continue
+    if not normalized:
+        raise typer.BadParameter("--stories does not contain any valid story input.")
+    return normalized
+
+
+def _coerce_score(value: Any) -> Optional[float]:
+    try:
+        score = float(value)
+    except (TypeError, ValueError):
+        return None
+    return score
+
+
+def _render_story_casting_details(
+    *,
+    stories: List[Dict[str, Any]],
+    castings: List[Dict[str, Any]],
+    strategy: Optional[Dict[str, Any]],
+) -> None:
+    if not castings:
+        return
+
+    story_by_id: Dict[str, Dict[str, Any]] = {}
+    for story in stories:
+        if not isinstance(story, dict):
+            continue
+        story_id = _compact_text(story.get("id"))
+        if story_id:
+            story_by_id[story_id] = story
+
+    fallback_note = _compact_text((strategy or {}).get("fallbackNote"))
+
+    console.print("\n[bold]Story Casting[/bold]")
+    if fallback_note:
+        console.print("[yellow]fallback used[/yellow]")
+
+    for row in castings:
+        if not isinstance(row, dict):
+            continue
+
+        story_id = _compact_text(row.get("storyId"))
+        story = story_by_id.get(story_id, {})
+        title = _compact_text(story.get("title")) or story_id or "Untitled story"
+        test_focus = _compact_text(story.get("testFocus"))
+        narrative = _compact_text(story.get("narrative"))
+
+        status = _compact_text(row.get("status")).lower()
+        status_display = status or "unknown"
+        status_style = "green" if status == "matched" else "yellow"
+
+        console.print(f"\n[bold]{title}[/bold]")
+        console.print(f"[{status_style}]{status_display}[/{status_style}]")
+        if test_focus:
+            console.print(test_focus)
+        if narrative:
+            console.print(narrative)
+
+        if status == "no_match":
+            reason_code = _compact_text(row.get("reasonCode")).upper()
+            message = _compact_text(row.get("message")) or _compact_text(row.get("detailReason"))
+            if reason_code and message:
+                console.print(f"{reason_code}: {message}")
+            elif reason_code:
+                console.print(reason_code)
+            elif message:
+                console.print(message)
+
+            best_effort = row.get("bestEffort")
+            if isinstance(best_effort, dict):
+                persona_name = _compact_text(best_effort.get("personaName")) or _compact_text(
+                    best_effort.get("personaId")
+                )
+                score = _coerce_score(best_effort.get("score"))
+                if persona_name and score is not None:
+                    console.print(f"Best-effort: {persona_name} ({score:.4f})")
+                elif persona_name:
+                    console.print(f"Best-effort: {persona_name}")
+            continue
+
+        if status == "matched":
+            match_reason = _compact_text(row.get("matchReason")) or _compact_text(row.get("message"))
+            if match_reason:
+                console.print(match_reason)
+
+    coverage_note = _compact_text((strategy or {}).get("coverageNote"))
+    diversity_note = _compact_text((strategy or {}).get("diversityNote"))
+    if coverage_note or diversity_note or fallback_note:
+        console.print()
+        if coverage_note:
+            console.print(f"Coverage: {coverage_note}")
+        if diversity_note:
+            console.print(f"Diversity: {diversity_note}")
+        if fallback_note:
+            console.print(f"Fallback: {fallback_note}")
+
+
 @app.command()
 def suggest(
     scenario_id: str = typer.Option(..., "--scenario-id", help="Scenario ID for persona suggestions"),
@@ -50,6 +249,22 @@ def suggest(
         None,
         "--language",
         help="Preferred language code for casting (e.g., ko, en, ja)",
+    ),
+    stories_file: Optional[Path] = typer.Option(
+        None,
+        "--stories-file",
+        help=(
+            "Path to JSON/YAML stories for cast-only mode. "
+            "Accepts a list of stories or {\"stories\": [...]}."
+        ),
+    ),
+    stories: Optional[str] = typer.Option(
+        None,
+        "--stories",
+        help=(
+            "Inline JSON stories for cast-only mode. "
+            "Accepts a JSON list of stories or {\"stories\": [...]}."
+        ),
     ),
     file: Optional[Path] = typer.Option(
         None, "--file", "-f", help="Load payload from YAML or JSON file"
@@ -100,6 +315,18 @@ def suggest(
         file_data = load_payload_file(file)
         payload.update(file_data)
 
+    if stories_file:
+        payload["stories"] = _load_stories_from_file(stories_file)
+        console.print(
+            f"[dim]Using external stories ({len(payload['stories'])}) from {stories_file}[/dim]"
+        )
+
+    if stories:
+        payload["stories"] = _parse_inline_stories(stories)
+        console.print(
+            f"[dim]Using inline stories ({len(payload['stories'])}) from --stories[/dim]"
+        )
+
     try:
         if effective_timeout > 60:
             console.print(f"[dim]Timeout: {effective_timeout:.0f}s[/dim]")
@@ -119,6 +346,19 @@ def suggest(
 
         data = resp.json()
         personas = data if isinstance(data, list) else data.get("personas", [])
+        stories = data.get("stories", []) if isinstance(data, dict) else []
+        castings = data.get("castings", []) if isinstance(data, dict) else []
+        strategy = data.get("strategy") if isinstance(data, dict) else None
+
+        if not isinstance(personas, list):
+            personas = []
+        if not isinstance(stories, list):
+            stories = []
+        if not isinstance(castings, list):
+            castings = []
+        if not isinstance(strategy, dict):
+            strategy = None
+
         suggested_ids: List[str] = []
         if isinstance(data, dict):
             raw_ids = data.get("persona_ids")
@@ -132,47 +372,56 @@ def suggest(
                 for persona in personas
                 if isinstance(persona, dict) and isinstance(persona.get("id"), str)
             ]
+        if personas:
+            console.print()
+            console.print(f"[green]✓[/green] {len(personas)} personas suggested")
 
-        if not personas:
+            # Create table
+            console.print("\n[bold]Suggested personas:[/bold]")
+            table = Table()
+            table.add_column("Difficulty", style="cyan")
+            table.add_column("Name", style="bold")
+            table.add_column("Description")
+
+            for persona in personas:
+                attrs = persona.get("attributes") or {}
+                difficulty = attrs.get("difficulty") or persona.get("difficulty", "unknown")
+                difficulty_display = {
+                    "easy": "[green]Easy[/green]",
+                    "medium": "[yellow]Medium[/yellow]",
+                    "hard": "[red]Hard[/red]",
+                }.get(difficulty, difficulty)
+                description = (
+                    attrs.get("character_summary")
+                    or persona.get("description", "N/A")
+                )
+
+                table.add_row(
+                    difficulty_display,
+                    persona.get("name", "N/A"),
+                    description,
+                )
+
+            console.print(table)
+        else:
             console.print("[yellow]No personas suggested.[/yellow]")
-            return
 
-        console.print()
-        console.print(f"[green]✓[/green] {len(personas)} personas suggested")
-
-        # Create table
-        console.print("\n[bold]Suggested personas:[/bold]")
-        table = Table()
-        table.add_column("Difficulty", style="cyan")
-        table.add_column("Name", style="bold")
-        table.add_column("Description")
-
-        for persona in personas:
-            attrs = persona.get("attributes") or {}
-            difficulty = attrs.get("difficulty") or persona.get("difficulty", "unknown")
-            difficulty_display = {
-                "easy": "[green]Easy[/green]",
-                "medium": "[yellow]Medium[/yellow]",
-                "hard": "[red]Hard[/red]",
-            }.get(difficulty, difficulty)
-            description = (
-                attrs.get("character_summary")
-                or persona.get("description", "N/A")
-            )
-
-            table.add_row(
-                difficulty_display,
-                persona.get("name", "N/A"),
-                description,
-            )
-
-        console.print(table)
+        _render_story_casting_details(
+            stories=stories,
+            castings=castings,
+            strategy=strategy,
+        )
 
         # Save to cache
         cache_path = save_cache_file(
             "personas",
             f"suggested_{scenario_id}.yaml",
-            {"persona_ids": suggested_ids, "personas": personas},
+            {
+                "persona_ids": suggested_ids,
+                "personas": personas,
+                "stories": stories if isinstance(stories, list) else [],
+                "castings": castings if isinstance(castings, list) else [],
+            },
         )
         console.print(f"\n[dim]Saved to: {cache_path}[/dim]")
 

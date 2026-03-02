@@ -26,9 +26,9 @@ All skills (except setup) follow this protocol to manage `.fluxloop/test-memory/
 | Skill | Reads | Writes | Server Connection (CLI) |
 |-------|-------|--------|------------------------|
 | setup | — | — | `auth login`, `projects create/select` |
-| context | — | agent-profile | `intent refine`, `data push` |
+| context | — | agent-profile | `intent refine`, `data push`, `data push --usage ground-truth` (if GT data present) |
 | scenario | agent-profile, learnings | test-strategy | `scenarios create/refine`, `sync pull` |
-| test | agent-profile, test-strategy | results-log | `sync pull`, `test --scenario` |
+| test | agent-profile, test-strategy | results-log | `sync pull`, `test --scenario`, `data gt status` (optional) |
 | evaluate | agent-profile, results-log, test-strategy | learnings, results-log | `evaluate --experiment-id` |
 | prompt-compare | agent-profile, results-log | prompt-versions, results-log | `test --scenario` (×2) |
 
@@ -48,10 +48,14 @@ The scenario, test, evaluate, and prompt-compare skills check for staleness when
 context → agent-profile.md + intent refine (server) + data push (server)
   ↓
 scenario → read agent-profile (stale? → refresh) → test-strategy.md + scenarios create (server)
+  ↓                                                  ↑
+  ↓                                    (optional) GT data bind → GT materialization
   ↓
 test → read agent-profile, test-strategy (stale? → refresh) → results-log.md + test results (server)
+  ↓    + (optional) GT status check
   ↓
 evaluate → read results-log → learnings.md + evaluation results (server)
+  ↓         + (optional) GT-based contract evaluation
   ↓
 scenario → read learnings → improved scenario design (loop)
 ```

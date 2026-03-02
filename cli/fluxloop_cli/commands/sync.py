@@ -559,6 +559,48 @@ def _guess_content_type(path: Path) -> str:
     return "application/octet-stream"
 
 
+def _format_quick_gate_pass_rate(
+    gate_applicable_runs: int,
+    gate_pass_runs: int,
+    gate_pass_rate: Any,
+) -> str:
+    if gate_applicable_runs <= 0:
+        return "N/A"
+
+    if isinstance(gate_pass_rate, (int, float)):
+        return f"{float(gate_pass_rate) * 100:.1f}%"
+    return f"{(gate_pass_runs / gate_applicable_runs) * 100:.1f}%"
+
+
+def _print_quick_gate_summary(quick_gate: Any) -> None:
+    if not isinstance(quick_gate, dict):
+        return
+
+    try:
+        gate_applicable_runs = int(quick_gate.get("gate_applicable_runs") or 0)
+    except (TypeError, ValueError):
+        gate_applicable_runs = 0
+    try:
+        gate_pass_runs = int(quick_gate.get("gate_pass_runs") or 0)
+    except (TypeError, ValueError):
+        gate_pass_runs = 0
+
+    pass_rate = _format_quick_gate_pass_rate(
+        gate_applicable_runs=gate_applicable_runs,
+        gate_pass_runs=gate_pass_runs,
+        gate_pass_rate=quick_gate.get("gate_pass_rate"),
+    )
+    console.print(
+        f"GT Gate (preliminary): {gate_pass_runs}/{gate_applicable_runs} pass ({pass_rate})"
+    )
+
+    if quick_gate.get("disclaimer") == "informational_only":
+        console.print(
+            "[dim]Note: preliminary result (informational_only). "
+            "Final decision is from server evaluation.[/dim]"
+        )
+
+
 @app.command()
 def pull(
     project_id: Optional[str] = typer.Option(None, "--project-id", help="Web Project ID"),
@@ -942,3 +984,4 @@ def upload(
         console.print(
             f"[green]✓[/green] Uploaded {len(runs_payload)} runs (experiment: {experiment_id})"
         )
+        _print_quick_gate_summary(upload_result.get("quick_gate"))

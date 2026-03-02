@@ -111,6 +111,78 @@ def _render_data_context_conflict(conflict: Dict[str, Any], scenario_id: str) ->
     console.print("  Retry command after data context is ready.")
 
 
+def _resolve_casting_persona_id(casting: Dict[str, Any]) -> Optional[str]:
+    status = str(casting.get("status") or "").strip().lower()
+    if status == "matched":
+        persona_id = casting.get("personaId")
+        if isinstance(persona_id, str) and persona_id.strip():
+            return persona_id.strip()
+        return None
+    if status == "no_match":
+        best_effort = casting.get("bestEffort")
+        if isinstance(best_effort, dict):
+            persona_id = best_effort.get("personaId")
+            if isinstance(persona_id, str) and persona_id.strip():
+                return persona_id.strip()
+    return None
+
+
+def _build_story_contexts_from_suggested_payload(
+    suggested_payload: Dict[str, Any],
+    *,
+    selected_persona_ids: Optional[set[str]] = None,
+) -> List[Dict[str, str]]:
+    stories = suggested_payload.get("stories")
+    castings = suggested_payload.get("castings")
+    if not isinstance(stories, list) or not isinstance(castings, list):
+        return []
+
+    story_context_by_id: Dict[str, str] = {}
+    for story in stories:
+        if not isinstance(story, dict):
+            continue
+        story_id = story.get("id")
+        narrative = story.get("narrative")
+        if not isinstance(story_id, str) or not story_id.strip():
+            continue
+        if not isinstance(narrative, str) or not narrative.strip():
+            continue
+        story_context_by_id[story_id.strip()] = narrative.strip()
+
+    if not story_context_by_id:
+        return []
+
+    contexts: List[Dict[str, str]] = []
+    seen_persona_ids: set[str] = set()
+    for casting in castings:
+        if not isinstance(casting, dict):
+            continue
+        persona_id = _resolve_casting_persona_id(casting)
+        if not persona_id:
+            continue
+        if selected_persona_ids is not None and persona_id not in selected_persona_ids:
+            continue
+        if persona_id in seen_persona_ids:
+            continue
+
+        story_id = casting.get("storyId")
+        if not isinstance(story_id, str) or not story_id.strip():
+            continue
+        story_context = story_context_by_id.get(story_id.strip())
+        if not story_context:
+            continue
+
+        seen_persona_ids.add(persona_id)
+        contexts.append(
+            {
+                "persona_id": persona_id,
+                "story_context": story_context,
+            }
+        )
+
+    return contexts
+
+
 @app.command()
 def synthesize(
     project_id: Optional[str] = typer.Option(
@@ -192,11 +264,15 @@ def synthesize(
         "include_data_context": True,
     }
 
+    suggested_path = Path.home() / ".fluxloop" / "personas" / f"suggested_{scenario_id}.yaml"
+    suggested_payload: Optional[Dict[str, Any]] = None
+    selected_persona_ids: Optional[set[str]] = None
+
     if persona_ids:
         persona_id_list: List[str] = [pid.strip() for pid in persona_ids.split(",") if pid.strip()]
         payload["persona_ids"] = persona_id_list
+        selected_persona_ids = set(persona_id_list)
     else:
-        suggested_path = Path.home() / ".fluxloop" / "personas" / f"suggested_{scenario_id}.yaml"
         if suggested_path.exists():
             try:
                 suggested_payload = load_payload_file(suggested_path)
@@ -218,11 +294,29 @@ def synthesize(
                         ]
                 if suggested_ids:
                     payload["persona_ids"] = suggested_ids
+                    selected_persona_ids = set(suggested_ids)
                     console.print(
                         f"[dim]Using suggested personas ({len(suggested_ids)}) from {suggested_path}[/dim]"
                     )
             except Exception as e:
                 console.print(f"[yellow]Failed to load suggested personas: {e}[/yellow]")
+
+    if suggested_payload is None and suggested_path.exists():
+        try:
+            suggested_payload = load_payload_file(suggested_path)
+        except Exception:
+            suggested_payload = None
+
+    if suggested_payload is not None and selected_persona_ids:
+        story_contexts = _build_story_contexts_from_suggested_payload(
+            suggested_payload,
+            selected_persona_ids=selected_persona_ids,
+        )
+        if story_contexts:
+            payload["story_contexts"] = story_contexts
+            console.print(
+                f"[dim]Using story contexts ({len(story_contexts)}) from {suggested_path}[/dim]"
+            )
 
     if total_count is not None:
         payload["total_count"] = total_count

@@ -143,6 +143,22 @@ Fields to populate:
 > **Required link output**: After scenario creation, extract `scenario_id` and `project_id` from CLI output to construct the URL.
 > URL pattern: `https://alpha.app.fluxloop.ai/simulate/scenarios/{scenario_id}?project={project_id}`
 
+#### Optional: Ground Truth Data Binding
+
+After scenario creation, the user may want to bind validation data:
+
+> "Do you have Ground Truth validation data (e.g., Q&A pairs with expected answers)? (enter path / skip)"
+
+- Path entered → upload as GT:
+  ```bash
+  fluxloop data push <gt-file> --usage ground-truth --scenario <scenario_id> --label-column <col>
+  ```
+  - Output: `✅ Data (GT) → {filename} bound to scenario, {N} GT contracts generated`
+  - Check status if needed: `fluxloop data gt status --scenario <scenario_id>`
+- skip → proceed to Step 7
+
+> 📎 For detailed GT classification guidance: read skills/context/SKILL.md Step 5-1
+
 ### Step 7: Wrapper Setup
 
 Basic flow:
@@ -177,8 +193,9 @@ Basic flow:
 
 ## Next Steps
 
-Scenario ready. Available next action:
+Scenario ready. Available next actions:
 - Run tests against the scenario (test skill)
+- Bind Ground Truth validation data (if not done): `fluxloop data push <file> --usage ground-truth --scenario <id>`
 
 ## Quick Reference
 

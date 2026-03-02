@@ -86,9 +86,21 @@ When showing multiple resources, include: **version/name, tag/description, count
 **Full generation path (must output results to the user after each step):**
 
 1. Persona generation:
+
+   **Two modes:**
+
+   | Mode | When | Command |
+   |------|------|---------|
+   | **Full** (default) | Server generates stories + casts personas | `fluxloop personas suggest --scenario-id <id>` |
+   | **Cast-only** | Agent generates stories from scenario context and passes them — server skips story generation, casts only | `fluxloop personas suggest --scenario-id <id> --stories '<json>'` |
+
+   Cast-only example (shorthand — CLI auto-fills missing fields):
    ```bash
-   fluxloop personas suggest --scenario-id <id>
+   fluxloop personas suggest --scenario-id <id> \
+     --stories '["payment retry confusion", {"title":"order lookup delay complaint"}]'
    ```
+   > `--stories-file <path>` (JSON/YAML file) is also supported.
+
    > **Required output**: `✅ Personas → N generated` + list of generated persona names
 
 2. Input generation:
@@ -113,6 +125,23 @@ When showing multiple resources, include: **version/name, tag/description, count
    > **Required output**: `✅ Bundle → v{N} ({bundle_version_id}) 🔗 https://alpha.app.fluxloop.ai/simulate/scenarios/{scenario_id}/bundles/{bundle_version_id}?project={project_id}`
 
 > ⚠️ Do NOT run `fluxloop test` here — always proceed to Step 3 first. (E-M2 fix)
+
+#### Ground Truth Check (optional)
+
+If the scenario has GT validation data bound, check materialization status before proceeding:
+
+```bash
+fluxloop data gt status --scenario <scenario_id> --format json
+```
+
+| GT Status | Action |
+|-----------|--------|
+| No GT data | Proceed normally (GT is optional) |
+| `materialization_status: completed` | ✅ GT ready — proceed to Step 3 |
+| `materialization_status: processing` | ⏳ "GT is still materializing. Proceed with test? (GT evaluation will be available after materialization completes)" |
+| `materialization_status: failed` | ⚠️ "GT materialization failed. Proceed without GT, or retry: `fluxloop data bind <data_id> --role validation --scenario <id>`" |
+
+> 💡 **Ground Truth**: Structured validation data (e.g., Q&A pairs with expected answers) bound to a scenario. When materialized, the server generates GT-based contracts that validate agent output correctness during evaluation. GT is optional — tests run normally without it.
 
 ### Step 3: Pre-check (mandatory for ALL paths)
 
@@ -191,6 +220,9 @@ Display result summary to the user.
 | `DATA_SUMMARY_STALE` | "Data summary is stale. Refresh data processing/summary, then retry synthesis/refine." |
 | `ModuleNotFoundError` in test | "Check `runner.target` in simulation.yaml, ensure wrapper is in Python path" |
 | Agent returns None | "Ensure wrapper returns string, not None" |
+| GT materialization `processing` | "GT data is still materializing. Test can proceed; GT evaluation will activate after materialization." |
+| GT materialization `failed` | "Retry: `fluxloop data bind <data_id> --role validation --scenario <id>`. Or proceed without GT." |
+| GT 409 error during test | "Check GT status: `fluxloop data gt status --scenario <id>`. Resolve before re-evaluation." |
 
 ## Next Steps
 
@@ -205,7 +237,8 @@ Test complete. Available next actions:
 | Check | `fluxloop context show` |
 | Bundles | `fluxloop bundles list --scenario-id <id> --format json` |
 | Inputs | `fluxloop inputs list --scenario-id <id> --format json` |
-| Personas | `fluxloop personas suggest --scenario-id <id>` |
+| Personas (full) | `fluxloop personas suggest --scenario-id <id>` |
+| Personas (cast-only) | `fluxloop personas suggest --scenario-id <id> --stories '<json>'` |
 | Synthesize | `fluxloop inputs synthesize --scenario-id <id>` |
 | QC | `fluxloop inputs qc --scenario-id <id> --input-set-id <id>` |
 | Refine | `fluxloop inputs refine --scenario-id <id> --input-set-id <id>` |
@@ -214,6 +247,7 @@ Test complete. Available next actions:
 | Test | `fluxloop test --scenario <name>` |
 | Multi-turn | `! fluxloop test --scenario <name> --multi-turn --max-turns <N>` |
 | Results | `fluxloop test results --scenario <name>` |
+| GT status | `fluxloop data gt status --scenario <id>` |
 | Git hash | `git rev-parse --short HEAD` |
 
 > 📎 Full CLI reference: read skills/_shared/QUICK_REFERENCE.md

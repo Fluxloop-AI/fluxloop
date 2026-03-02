@@ -7,9 +7,14 @@
 3. **Interactive mode**: `"Do you have any reference documents? (enter path / skip)"`
 4. **Server upload**:
    ```bash
+   # Context files (default — reference documents, specs, code)
    fluxloop data push README.md
    fluxloop data push docs/api-spec.md --bind  # --bind links to the current scenario
+
+   # Ground Truth files (structured data with expected answers — requires active scenario)
+   # fluxloop data push qa-pairs.csv --usage ground-truth --scenario <id> --label-column expected_answer
    ```
+   > 📎 For GT classification guidance (context vs ground-truth): read skills/context/SKILL.md Step 5-1
 5. **Local save**: Save the collected results to `.fluxloop/test-memory/agent-profile.md` with metadata
 
 ## agent-profile.md Metadata Format

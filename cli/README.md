@@ -28,9 +28,35 @@ The legacy `setting.yaml` is still supported, but new projects created with
 - `fluxloop parse experiment` – convert experiment outputs into readable artifacts and emit structured per-trace JSON at `per_trace_analysis/per_trace.jsonl`
 - `fluxloop evaluate experiment` – run the LLM-driven evaluation pipeline (LLM-PT → rule aggregation → LLM-OV → HTML render). Requires the parsed per-trace file (or `--per-trace`) and writes an interactive report to `evaluation_report/report.html` by default.
 - `fluxloop config set-llm` – update LLM provider/model in `configs/input.yaml`
+- `fluxloop data push|bind|gt status` – upload/bind Ground Truth (Validation) datasets and inspect GT materialization status
 - `fluxloop record enable|disable|status` – toggle recording mode across `.env` and simulation config
 - `fluxloop doctor` – summarize Python, FluxLoop CLI/MCP, and MCP index state for the active environment
 - `--yes/-y` (for `fluxloop run experiment`) – skip the interactive confirmation prompt, ideal for CI and the Pytest bridge
+
+### Ground Truth Data Workflow
+
+Use these commands to upload validation datasets, bind them to a scenario, and
+check GT materialization progress:
+
+```bash
+# 1) Upload as Ground Truth + bind + materialize
+fluxloop data push qa_pairs.csv \
+  --usage ground-truth \
+  --scenario <scenario_id> \
+  --split test \
+  --label-column expected_answer \
+  --row-filter "lang = 'ko'"
+
+# 2) Bind existing data as validation (auto materialize by default)
+fluxloop data bind <data_id> \
+  --scenario <scenario_id> \
+  --role validation \
+  --split test \
+  --label-column expected_answer
+
+# 3) Check GT materialization status
+fluxloop data gt status --scenario <scenario_id> [--data-id <data_id>]
+```
 
 ### Multi-turn supervisor options
 

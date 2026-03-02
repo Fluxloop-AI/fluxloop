@@ -122,3 +122,83 @@ def test_inputs_refine_uses_context_project_id(monkeypatch):
     assert captured["payload"]["project_id"] == "project_ctx"
     assert captured["payload"]["scenario_id"] == "scenario_1"
     assert captured["payload"]["input_set_id"] == "set_1"
+
+
+def test_inputs_synthesize_uses_story_contexts_from_suggested_cache(monkeypatch, tmp_path):
+    captured = {}
+
+    monkeypatch.setattr(inputs_cmd.Path, "home", lambda: tmp_path)
+
+    suggested_dir = tmp_path / ".fluxloop" / "personas"
+    suggested_dir.mkdir(parents=True, exist_ok=True)
+    suggested_path = suggested_dir / "suggested_scenario_1.yaml"
+    suggested_path.write_text("persona_ids: []\n")
+
+    monkeypatch.setattr(
+        inputs_cmd,
+        "load_payload_file",
+        lambda _path: {
+            "persona_ids": ["p1"],
+            "stories": [
+                {"id": "story_1", "narrative": "Story one narrative."},
+                {"id": "story_2", "narrative": "Story two narrative."},
+            ],
+            "castings": [
+                {
+                    "storyId": "story_1",
+                    "status": "matched",
+                    "personaId": "p1",
+                },
+                {
+                    "storyId": "story_2",
+                    "status": "no_match",
+                    "reasonCode": "LOW_CONFIDENCE",
+                    "bestEffort": {
+                        "personaId": "p2",
+                    },
+                },
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        inputs_cmd,
+        "create_authenticated_client",
+        lambda *_args, **_kwargs: object(),
+    )
+    monkeypatch.setattr(
+        inputs_cmd,
+        "spin_while",
+        lambda _message, fn, console=None: fn(),
+    )
+    monkeypatch.setattr(inputs_cmd, "handle_api_error", lambda *_args, **_kwargs: None)
+
+    def _fake_post_with_retry(_client, _path, payload):
+        captured["payload"] = payload
+        return _FakeResponse(
+            {
+                "items": [{"input": "example"}],
+                "version": 1,
+                "persona_ids": payload.get("persona_ids") or [],
+            },
+            status_code=200,
+        )
+
+    monkeypatch.setattr(inputs_cmd, "post_with_retry", _fake_post_with_retry)
+
+    result = runner.invoke(
+        inputs_cmd.app,
+        [
+            "synthesize",
+            "--project-id",
+            "project_1",
+            "--scenario-id",
+            "scenario_1",
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured["payload"]["persona_ids"] == ["p1"]
+    assert captured["payload"]["story_contexts"] == [
+        {"persona_id": "p1", "story_context": "Story one narrative."}
+    ]

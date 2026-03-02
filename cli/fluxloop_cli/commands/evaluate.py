@@ -4,9 +4,10 @@ Trigger server-side evaluation for an experiment.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 import time
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import typer
 from rich.console import Console
@@ -20,6 +21,7 @@ from ..progress import SpinnerStatus
 app = typer.Typer(help="Trigger evaluation for an experiment (server-side).")
 console = Console()
 
+
 def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
     if not value:
         return None
@@ -29,6 +31,146 @@ def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
         return datetime.fromisoformat(value)
     except ValueError:
         return None
+
+
+def _decision_is_empty(payload: Any) -> bool:
+    if not isinstance(payload, dict):
+        return True
+    for key in ("release_decision", "decision_snapshot", "gate_snapshot", "gate_results_snapshot"):
+        if payload.get(key) is not None:
+            return False
+    return True
+
+
+def _normalize_gate_reason(gate_result: dict[str, Any]) -> Optional[str]:
+    raw_reasons = gate_result.get("reasons")
+    if isinstance(raw_reasons, list):
+        tokens = [str(item).strip() for item in raw_reasons if str(item).strip()]
+    else:
+        raw_reason = gate_result.get("reason")
+        if raw_reason is None:
+            return None
+        tokens = [
+            item.strip()
+            for item in str(raw_reason).replace(";", ",").split(",")
+            if item.strip()
+        ]
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for token in tokens:
+        clean = token
+        if ":" in token:
+            prefix, suffix = token.rsplit(":", 1)
+            if suffix.strip().isdigit():
+                clean = prefix.strip()
+        if clean and clean not in seen:
+            seen.add(clean)
+            normalized.append(clean)
+    if not normalized:
+        return None
+    return ", ".join(normalized)
+
+
+def _format_budget_value(key: str, value: Any) -> str:
+    if isinstance(value, bool):
+        return str(value).lower()
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        if key == "cost_usd":
+            return f"{value:.2f}"
+        if value.is_integer():
+            return str(int(value))
+        return f"{value:.3f}".rstrip("0").rstrip(".")
+    return str(value)
+
+
+def _render_decision_text(payload: dict[str, Any]) -> str:
+    decision_snapshot = payload.get("decision_snapshot")
+    if not isinstance(decision_snapshot, dict):
+        decision_snapshot = {}
+
+    release_decision = payload.get("release_decision") or decision_snapshot.get("release_decision")
+    overall_verdict = decision_snapshot.get("overall_verdict")
+
+    gate_results = payload.get("gate_results_snapshot")
+    if not isinstance(gate_results, list):
+        snapshot_gate_results = decision_snapshot.get("gate_results")
+        gate_results = snapshot_gate_results if isinstance(snapshot_gate_results, list) else []
+
+    lines: list[str] = [
+        f"Release Decision: {release_decision or 'unknown'}",
+        f"Overall Verdict: {overall_verdict or 'unknown'}",
+        "",
+        "Gates:",
+    ]
+
+    if gate_results:
+        for gate_result in gate_results:
+            if not isinstance(gate_result, dict):
+                continue
+            gate_key = gate_result.get("gate_key") or gate_result.get("metric_key") or "unknown_gate"
+            status = str(gate_result.get("status") or "unknown")
+            line = f"  - {gate_key} => {status}"
+            reason = _normalize_gate_reason(gate_result)
+            if reason:
+                line += f" ({reason})"
+            lines.append(line)
+    else:
+        lines.append("  - (none)")
+
+    metrics = decision_snapshot.get("metrics")
+    lines.extend(["", "Budget:"])
+    if isinstance(metrics, dict):
+        budget_rows: list[str] = []
+        for metric_key in ("tokens_used", "cost_usd", "latency_ms"):
+            metric_value = metrics.get(metric_key)
+            if metric_value is None:
+                continue
+            budget_rows.append(
+                f"  - {metric_key}: {_format_budget_value(metric_key, metric_value)}"
+            )
+        if budget_rows:
+            lines.extend(budget_rows)
+        else:
+            lines.append("  - N/A")
+    else:
+        lines.append("  - N/A")
+
+    return "\n".join(lines)
+
+
+def _show_decision(
+    *,
+    client,
+    experiment_id: str,
+    project_id: str,
+    json_output: bool,
+) -> None:
+    decision_resp = client.get(
+        f"/api/experiments/{experiment_id}/decision",
+        params={"project_id": project_id},
+    )
+    if decision_resp.status_code == 404:
+        console.print(
+            f"[red]✗[/red] Decision not found for experiment: {experiment_id}"
+        )
+        raise typer.Exit(1)
+    handle_api_error(decision_resp, "decision")
+
+    decision_payload = decision_resp.json()
+    if _decision_is_empty(decision_payload):
+        console.print("[red]✗[/red] Decision is not available yet for this experiment.")
+        console.print("[dim]Run with --wait and try again after evaluation completes.[/dim]")
+        raise typer.Exit(1)
+
+    if json_output:
+        console.print_json(json.dumps(decision_payload, ensure_ascii=False, default=str))
+        return
+
+    console.print("")
+    console.print(_render_decision_text(decision_payload))
 
 
 @app.callback(invoke_without_command=True)
@@ -54,6 +196,12 @@ def main(
     ),
     poll_interval: int = typer.Option(
         3, "--poll-interval", help="Polling interval in seconds"
+    ),
+    show_decision: bool = typer.Option(
+        False, "--show-decision", help="Show release decision snapshot after evaluation"
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Print decision response as raw JSON (with --show-decision)"
     ),
     api_url: Optional[str] = typer.Option(
         None, "--api-url", help="FluxLoop API base URL"
@@ -97,6 +245,15 @@ def main(
     console.print(f"  status: {result.get('status')}")
 
     if not wait:
+        if show_decision:
+            _show_decision(
+                client=client,
+                experiment_id=experiment_id,
+                project_id=project_id,
+                json_output=json_output,
+            )
+        elif json_output:
+            console.print("[yellow]--json is ignored without --show-decision.[/yellow]")
         return
 
     evaluation_id = result.get("evaluation_id")
@@ -106,7 +263,6 @@ def main(
 
     start = time.monotonic()
     warned = False
-    last_status = None
 
     with SpinnerStatus("Waiting for evaluation job...", console=console) as spinner:
         while True:
@@ -141,7 +297,6 @@ def main(
                 status_line += ")"
 
             spinner.update(status_line)
-            last_status = status
 
             if status in ("completed", "partial", "failed", "cancelled"):
                 break
@@ -186,3 +341,13 @@ def main(
             console.print(f"[green]Insights[/green]: {insight_headline}")
         if reco_headline:
             console.print(f"[green]Recommendations[/green]: {reco_headline}")
+
+    if show_decision:
+        _show_decision(
+            client=client,
+            experiment_id=experiment_id,
+            project_id=project_id,
+            json_output=json_output,
+        )
+    elif json_output:
+        console.print("[yellow]--json is ignored without --show-decision.[/yellow]")

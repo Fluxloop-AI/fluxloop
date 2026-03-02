@@ -23,19 +23,34 @@ fluxloop bundles list --scenario-id <id> --format json
       │   ├─ Use existing → bundle publish (3 commands)
       │   └─ Create new → full generation (5 commands)
       │
-      └─ No input set → full generation (각 단계 완료 후 결과 출력 필수)
+      └─ No input set → full generation (must output results after each step)
           1. fluxloop personas suggest --scenario-id <id>
-             → ✅ Personas → N개 생성됨 + 이름 목록
+             - Default (full mode): server generates stories + casts personas
+             - Cast-only mode: agent generates stories from scenario context and passes them via `--stories '<json>'` — server skips story generation and casts only
+               - Shorthand supported: `--stories '["title only is fine"]'` or `--stories '[{"title":"..."}]'` (CLI auto-fills missing fields)
+             → ✅ Personas → N generated + name list
           2. fluxloop inputs synthesize --scenario-id <id> --total-count N
-             → ✅ Input Set → {id} (N개 입력) 🔗 URL + 내용 요약
-             → 409 (`DATA_CONTEXT_NOT_READY`/`DATA_SUMMARY_MISSING`/`DATA_SUMMARY_STALE`) 발생 시 CLI 안내 문구를 따른 뒤 동일 명령 재시도
+             → ✅ Input Set → {id} (N inputs) 🔗 URL + content summary
+             → On 409 (`DATA_CONTEXT_NOT_READY`/`DATA_SUMMARY_MISSING`/`DATA_SUMMARY_STALE`), follow CLI guidance and retry the same command
           3. fluxloop bundles publish --scenario-id <id> --input-set-id <id>
              → ✅ Bundle → v1 ({id}) 🔗 URL
 ```
 
+## Ground Truth Awareness
+
+If the scenario has GT data bound, input synthesis uses GT contracts alongside regular contracts. This does NOT change the bundle selection flow — GT enhances evaluation, not input generation.
+
+Check GT readiness before synthesis if needed:
+```bash
+fluxloop data gt status --scenario <id> --format json
+```
+- `materialization_status: completed` → GT contracts are active
+- `materialization_status: processing` → GT not yet ready; synthesis can proceed without GT contracts
+- No GT data → standard flow (no action needed)
+
 ## ID Extraction
 
-list 명령 실행 시 반드시 `--format json`을 사용하여 ID를 추출한다. 테이블 출력은 터미널 폭에 따라 UUID가 잘릴 수 있으므로, JSON 출력에서 전체 ID를 안전하게 파싱한다.
+Always use `--format json` on list commands to extract IDs. Table output may truncate UUIDs depending on terminal width, so parse full IDs from JSON output.
 
 ## Display Format for Multiple Resources
 
@@ -59,12 +74,13 @@ prompt-compare only needs a small number of inputs, so it follows a simplified f
 ```
 bundles list --format json → exists → select
              → none → inputs list --format json → exists → select and publish
-                                  → none → small-scale generation (각 단계 결과 출력 필수):
+                                  → none → small-scale generation (must output results after each step):
                                     1. fluxloop personas suggest --scenario-id <id>
-                                       → ✅ Personas → N개 생성됨 + 이름 목록
+                                       - Cast-only mode: pass agent-generated stories via `--stories '<json>'` — server casts only
+                                       → ✅ Personas → N generated + name list
                                     2. fluxloop inputs synthesize --scenario-id <id> --total-count 2
-                                       → ✅ Input Set → {id} (N개 입력) 🔗 URL + 내용 요약
-                                       → 409 (`DATA_CONTEXT_NOT_READY`/`DATA_SUMMARY_MISSING`/`DATA_SUMMARY_STALE`) 발생 시 CLI 안내 문구를 따른 뒤 동일 명령 재시도
+                                       → ✅ Input Set → {id} (N inputs) 🔗 URL + content summary
+                                       → On 409 (`DATA_CONTEXT_NOT_READY`/`DATA_SUMMARY_MISSING`/`DATA_SUMMARY_STALE`), follow CLI guidance and retry the same command
                                     3. fluxloop bundles publish --scenario-id <id> --input-set-id <id>
                                        → ✅ Bundle → v1 ({id}) 🔗 URL
 ```
